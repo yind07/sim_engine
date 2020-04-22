@@ -29,33 +29,10 @@ class Simulation:
         for i in range(cfg.f_num[constant.FName.automobile_assembly]):
             self.f_automobile.append(get_newf(cfg, constant.FName.automobile_assembly))
         
-        # how many times does module ready return false? for demo purpose
-        self.cnt_false = 1
-        
-    # return true if mod_name is ready, return false otherwise
-    def is_module_ready(self, mod_name):
-        print("Check if %s is ready" % mod_name)
-        if self.cnt_false > 0:
-            self.cnt_false -= 1
-            return False
-        else:
-            self.cnt_false = 1
-            return True
-        
-    def check_modules(self):
-        mod_num = 2 # for demo
-        for i in range(mod_num):
-            name = "mod_" + str(i+1)
-            while not self.is_module_ready(name):
-                pass
-            print("%s is ready" % name)
-        
     def run(self):
         print("Start simulation...")
         
         self.config.init_db()
-        
-        self.check_modules()
         
         oid = 1 # initial oid
         supplier = self.f_aircraft[0]
@@ -69,7 +46,8 @@ class Simulation:
             order.display()
             m4order = order.supplier.calMaterials(order.goods, self.config)
             tools.print_list(m4order, "需要订购的原料")
-            print("\n安排生产链：TODO")
+            
+            print("\n<TODO> 安排生产链")
             
             # arrange production
         # 
