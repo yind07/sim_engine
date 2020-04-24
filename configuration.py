@@ -8,26 +8,7 @@ import math
 import random
 import pandas # get info from excel file
 
-from constant import FName
-from warehouse import WType
-from item import IName
-
-# mapping for config file
-cfg_fname_dict = {
-  "飞机总装厂": FName.aircraft_assembly,
-  "汽车总装厂": FName.automobile_assembly,
-  "炼化厂":     FName.petrochemical,      
-  "冶铁厂":     FName.iron_making,        
-  "冶铝厂":     FName.alum_making,        
-  "化工厂":     FName.chemical,           
-  "热轧厂":     FName.hot_rolling,        
-  "冷轧厂":     FName.cold_rolling,       
-  "塑料零件厂": FName.plastic_parts,      
-  "铁质零件厂": FName.iron_parts,         
-  "铝质零件厂": FName.alum_parts,         
-  "发电厂":     FName.power_station,      
-}
-
+from constant import IName, FName, WType
 
 class Config:
     def __init__(self, filename):
@@ -39,130 +20,7 @@ class Config:
         self.__cfg_factory(xls)
         self.__cfg_stocks(xls)
         
-        # 初始库存(stock qty)Base及相应上限(upper limit)
-        #   base: 库存Base
-        #   ul:   库存上限（目前为库存Base的10倍）
-        self.f = {
-            FName.aircraft_assembly: {
-                WType.products: {
-                    IName.aircraft: {
-                        "base": 5,
-                        "ul": 50,
-                    },
-                },
-                WType.materials: {
-                    IName.plastic_gear: {
-                        "base": 1000,
-                        "ul": 10000,
-                    },
-                    IName.plastic_lever: {
-                        "base": 500,
-                        "ul": 5000,
-                    },
-                    IName.plastic_enclosure: {
-                        "base": 600,
-                        "ul": 6000,
-                    },
-                    IName.iron_gear: {
-                        "base": 2000,
-                        "ul": 20000,
-                    },
-                    IName.iron_lever: {
-                        "base": 1000,
-                        "ul": 10000,
-                    },
-                    IName.iron_enclosure: {
-                        "base": 1000,
-                        "ul": 10000,
-                    },
-                    IName.alum_gear: {
-                        "base": 2000,
-                        "ul": 20000,
-                    },
-                    IName.alum_lever: {
-                        "base": 1200,
-                        "ul": 12000,
-                    },
-                    IName.alum_enclosure: {
-                        "base": 1500,
-                        "ul": 15000,
-                    },
-                },
-            },
-            FName.automobile_assembly: {
-                WType.products: {
-                    IName.automobile: {
-                        "base": 10,
-                        "ul": 100,
-                    },
-                },
-                WType.materials: {
-                    IName.plastic_gear: {
-                        "base": 500,
-                        "ul": 5000,
-                    },
-                    IName.plastic_lever: {
-                        "base": 300,
-                        "ul": 3000,
-                    },
-                    IName.plastic_enclosure: {
-                        "base": 300,
-                        "ul": 3000,
-                    },
-                    IName.iron_gear: {
-                        "base": 600,
-                        "ul": 6000,
-                    },
-                    IName.iron_lever: {
-                        "base": 800,
-                        "ul": 8000,
-                    },
-                    IName.iron_enclosure: {
-                        "base": 200,
-                        "ul": 2000,
-                    },
-                    IName.alum_gear: {
-                        "base": 800,
-                        "ul": 8000,
-                    },
-                    IName.alum_lever: {
-                        "base": 600,
-                        "ul": 6000,
-                    },
-                    IName.alum_enclosure: {
-                        "base": 500,
-                        "ul": 5000,
-                    },
-                },
-            },
-        }
-
-        # BOM表（目前和库存Base比例一致，各零件数量为Base的1/2）
-        self.bom = {
-            IName.aircraft: {
-                IName.plastic_gear: 500,
-                IName.plastic_lever: 250,
-                IName.plastic_enclosure: 300,
-                IName.iron_gear: 1000,
-                IName.iron_lever: 500,
-                IName.iron_enclosure: 500,
-                IName.alum_gear: 1000,
-                IName.alum_lever: 600,
-                IName.alum_enclosure: 750,
-            },
-            IName.automobile: {
-                IName.plastic_gear: 250,
-                IName.plastic_lever: 150,
-                IName.plastic_enclosure: 150,
-                IName.iron_gear: 300,
-                IName.iron_lever: 400,
-                IName.iron_enclosure: 100,
-                IName.alum_gear: 400,
-                IName.alum_lever: 300,
-                IName.alum_enclosure: 250,
-            },
-        }
-        
+        #  TODO
         # 生产/消耗速度
         # 基数
         self.ratebase = {
@@ -177,6 +35,12 @@ class Config:
             IName.alum_gear: 4,
             IName.alum_lever: 2,
             IName.alum_enclosure: 1,
+            IName.pvc: 2,
+            IName.pvc_hb: 1,
+            IName.iron_shcc: 2,
+            IName.iron_spcc: 1,
+            IName.alum_shcc: 2,
+            IName.alum_spcc: 1,
         }
         # 倍数
         self.ratemul = {
@@ -187,6 +51,18 @@ class Config:
             FName.automobile_assembly: {
                 WType.products: 100,
                 WType.materials: 500,
+            },
+            FName.plastic_parts: {
+                WType.products: 500,
+                WType.materials: 50,
+            },
+            FName.iron_parts: {
+                WType.products: 500,
+                WType.materials: 50,
+            },
+            FName.alum_parts: {
+                WType.products: 500,
+                WType.materials: 50,
             },
         }
         
@@ -219,8 +95,8 @@ class Config:
         print("<TODO> Init DB tables")
         
     def get_init_qty(self, fname, wtype, iname):
-        return rand_qty(self.f[fname][wtype][iname]["base"],
-                      self.f[fname][wtype][iname]["ul"])
+        return rand_qty(self.f_stocks[fname][wtype][iname]["base"],
+                      self.f_stocks[fname][wtype][iname]["ul"])
       
     def __cfg_db(self, h_xls):
         db = pandas.read_excel(h_xls, "database")
@@ -241,14 +117,61 @@ class Config:
         df = pandas.read_excel(h_xls, "factory")
         for i in range(len(df)):
           row = df.loc[i]
-          key = cfg_fname_dict[row[cfg_col_name]]
+          key = FName.get(row[cfg_col_name])
           self.f_num[key] = row[cfg_col_num]
           self.f_pc[key] = row[cfg_col_pc]
           self.f_mlen[key] = row[cfg_col_mlen]
           
     def __cfg_stocks(self, h_xls):
-        print("<TODO> __cfg_stocks")
+        cfg_col_fname = "名称"
+        cfg_col_wtype = "仓库"
+        cfg_col_iname = "品名"
+        cfg_col_rate = "生产/消耗速度"
+        cfg_col_pauselimit = "停产上/下限" # 原料下限，成品上限
+        cfg_col_restocklimit = "进货下限" # 仅对原料有效
+        cfg_col_qtybase = "初始库存基数"
+        cfg_col_qtyul = "初始库存上限"
+        
+        self.f_stocks = {}   # 各厂库存
+        d = pandas.read_excel(h_xls, "stocks")
+        for i in range(len(d)):
+          row = d.loc[i]
+          fname = row[cfg_col_fname]
+          wtype = row[cfg_col_wtype]
+          if not pandas.isna(fname):
+            key_f = FName.get(fname) # key of factory name
+            warehouses = {}
+          if not pandas.isna(wtype):
+            key_w = WType.get(wtype) # key of warehouse type
+            items = {}
+          items[IName.get(row[cfg_col_iname])] = {
+            "rate": row[cfg_col_rate],
+            "pause_limit": row[cfg_col_pauselimit],
+            "restock_limit": row[cfg_col_restocklimit],
+            "base": row[cfg_col_qtybase],
+            "ul": row[cfg_col_qtyul],
+          }
+          warehouses[key_w] = items
+          self.f_stocks[key_f] = warehouses
+        self.__cal_bom()
+          
+    def __cal_bom(self):
+      self.bom = {}
+      for k_f,v_f in self.f_stocks.items():
+        min_qty = get_min_qty(v_f[WType.products])
+        materials = {}
+        for k_m,v_m in v_f[WType.materials].items():
+          materials[k_m] = v_m["rate"]/min_qty
+        self.bom[k_f] = materials
+      #print(self.bom)
 
+def get_min_qty(dict_prod):
+  min_qty = float("inf")  # 正无穷
+  for k,v in dict_prod.items():
+    if v["rate"] < min_qty:
+      min_qty = v["rate"]
+  return min_qty
+          
 def rand_qty(base, upperlimit):
     # ensure base, upperlimit > 0 and base < upperlimit
     if base <= 0 or upperlimit <= 0 or base >= upperlimit:
@@ -257,7 +180,3 @@ def rand_qty(base, upperlimit):
     else: # 0 < base < upperlimit
         multiple = math.floor(upperlimit/base)
         return (random.randrange(multiple)+1) * base
-        
-        
-    
-       

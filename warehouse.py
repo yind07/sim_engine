@@ -4,21 +4,9 @@ Created on Tue Apr 21 13:10:37 2020
 
 @author: ydeng
 """
-import constant
-from enum import Enum
-from item import IName, ItemRecord
 
-# 仓库种类
-class WType(Enum):
-    def __str__(self):
-        if self.name == "materials":
-            return "原料库"
-        elif self.name == "products":
-            return "成品库"
-        return "WType.NEW"
-        
-    materials = 1 # 工厂生产的输入
-    products  = 2 # 工厂生产的输出
+from constant import WType, IName, FName
+from item import ItemRecord
 
 class Warehouse:
     # rate_mul: 消耗/生产速度的倍数
@@ -29,7 +17,7 @@ class Warehouse:
         self.rate_mul = rm
         
     def __str__(self):
-        s = "库存 %s(%d):" % (self.type, len(self.stocks))
+        s = "库存 %s(%d类):" % (self.type, len(self.stocks))
         for i in self.stocks:
             s += "\n    %s" % i
         return s
@@ -49,12 +37,12 @@ class MWarehouse(Warehouse):
     # Return: 当前库存原料可以生产的最大成品数
     # mcfgs: dict - 生产一个成品的原料数量配比，例如BOM表
     def maxProductQty(self, mcfgs):
-        max_qty = float("inf")  # 正无穷
+        min_qty = float("inf")  # 正无穷
         for m in self.stocks:
             mp = m.maxProductQty(mcfgs[m.name])
-            if mp < max_qty:
-                max_qty = mp
-        return max_qty
+            if mp < min_qty:
+                min_qty = mp
+        return min_qty
         
 # helper functions
 def _init_stocks(cfg, fname, names, wtype):
@@ -73,7 +61,7 @@ def init_stocks_m(cfg, lst_names, fname):
 
 # return initial stocks by configuration, factory name and warehouse type
 def default_stocks(cfg, fname, wtype):
-    if fname == constant.FName.aircraft_assembly:
+    if fname == FName.aircraft_assembly:
         if wtype == WType.products:
             return init_stocks_p(cfg, fname, [IName.aircraft])
         elif wtype == WType.materials:
@@ -88,7 +76,7 @@ def default_stocks(cfg, fname, wtype):
                                   IName.alum_lever,\
                                   IName.alum_enclosure])
     
-    elif fname == constant.FName.automobile_assembly:
+    elif fname == FName.automobile_assembly:
         if wtype == WType.products:
             return init_stocks_p(cfg, fname, [IName.automobile])
         elif wtype == WType.materials:
@@ -102,6 +90,37 @@ def default_stocks(cfg, fname, wtype):
                                   IName.alum_gear,\
                                   IName.alum_lever,\
                                   IName.alum_enclosure])
+    elif fname == FName.plastic_parts:
+        if wtype == WType.products:
+            return init_stocks_p(cfg, fname,\
+                                 [IName.plastic_gear,\
+                                  IName.plastic_lever,\
+                                  IName.plastic_enclosure])
+        elif wtype == WType.materials:
+            return init_stocks_m(cfg, fname,\
+                                 [IName.pvc,\
+                                  IName.pvc_hb])
+    elif fname == FName.iron_parts:
+        if wtype == WType.products:
+            return init_stocks_p(cfg, fname,\
+                                 [IName.iron_gear,\
+                                  IName.iron_lever,\
+                                  IName.iron_enclosure])
+        elif wtype == WType.materials:
+            return init_stocks_m(cfg, fname,\
+                                 [IName.iron_shcc,\
+                                  IName.iron_spcc])
+    elif fname == FName.alum_parts:
+        if wtype == WType.products:
+            return init_stocks_p(cfg, fname,\
+                                 [IName.alum_gear,\
+                                  IName.alum_lever,\
+                                  IName.alum_enclosure])
+        elif wtype == WType.materials:
+            return init_stocks_m(cfg, fname,\
+                                 [IName.alum_shcc,\
+                                  IName.alum_spcc])
     else:
+        print("Warning: Add new stocks!")
         pass
     return []

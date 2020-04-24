@@ -8,9 +8,11 @@ Created on Sat Apr 18 12:14:08 2020
 from item import *
 
 class Order:
-    def __init__(self, oid, demander, supplier):
+    _oid = 0  # order id
+    def __init__(self, demander, supplier):
         print("创建新订单")
-        self.oid = oid
+        Order._oid += 1
+        self.oid = Order._oid
         self.goods = []
         self.demander = demander  # 需求方
         self.supplier = supplier  # 供给方
@@ -32,9 +34,15 @@ class Order:
         
     #def analyze(self):
     #    print("分析订单...")
-            
-        
+    
     # 拆分订单算法
     #def get_split():
         
-        
+# split demands
+def get_demand(m4order, names):
+    demand = []
+    for n in names:
+      for r in m4order:
+        if r.name == n:
+          demand.append(r)
+    return demand
