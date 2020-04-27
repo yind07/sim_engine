@@ -6,6 +6,7 @@ Created on Sat Apr 18 12:14:08 2020
 """
 
 from item import *
+#import tools
 
 class Order:
     _oid = 0  # order id
@@ -39,6 +40,7 @@ class Order:
     #def get_split():
         
 # split demands
+# m4order is a list
 def get_demand(m4order, names):
     demand = []
     for n in names:
@@ -46,3 +48,14 @@ def get_demand(m4order, names):
         if r.name == n:
           demand.append(r)
     return demand
+"""
+def get_demand(m4order, names):
+    #tools.print_list(m4order.keys(), "demands")
+    demand = []
+    for n in names:
+      for l in m4order.values():
+        for r in l:
+          if r.name == n:
+            demand.append(r)
+    return demand
+"""    

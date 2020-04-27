@@ -20,12 +20,11 @@ from enum import Enum
 
 # item + quantity
 class ItemRecord:
-    # rate_base: 消耗/生产速度的基数，
-    # 原料 – 消耗速度；成品 – 生产速度
-    def __init__(self, iname, qty, cfg):
+    ## rate_base: 消耗/生产速度的基数，
+    ## 原料 – 消耗速度；成品 – 生产速度
+    def __init__(self, iname, qty):
         self.name = iname
         self.qty = qty
-        self.rate_base = cfg.ratebase[iname]
         
     def __str__(self):
         return "%s (qty=%d)" % (self.name, self.qty)

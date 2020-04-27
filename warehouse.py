@@ -5,6 +5,8 @@ Created on Tue Apr 21 13:10:37 2020
 @author: ydeng
 """
 
+import random
+
 from constant import WType, IName, FName
 from item import ItemRecord
 
@@ -45,82 +47,25 @@ class MWarehouse(Warehouse):
         return min_qty
         
 # helper functions
-def _init_stocks(cfg, fname, names, wtype):
-    stocks = []
-    for n in names:
-        r = ItemRecord(n, cfg.get_init_qty(fname, wtype, n), cfg)
-        stocks.append(r)
-    return stocks    
 
-def init_stocks_p(cfg, fname, names):
-    return _init_stocks(cfg, fname, names, WType.products)
-
-def init_stocks_m(cfg, lst_names, fname):
-    return _init_stocks(cfg, lst_names, fname, WType.materials)            
-
+# assumption: fname + wtype => goods on stock
+#def _init_stocks(cfg, fname, names, wtype):
+def _init_stocks(cfg, fname, wtype):
+  # calculate the minimal multiple (ul/base) of goods
+  min_multiple = float("inf") 
+  for i,v in cfg.f_stocks[fname][wtype].items():
+    m = v["ul"]/v["base"]
+    if m < min_multiple:
+      min_multiple = m
+  rand_multiple = random.randrange(min_multiple)+1
+  #print("rand_multiple: %d" % rand_multiple)
+  
+  stocks = []
+  for i,v in cfg.f_stocks[fname][wtype].items():
+    r = ItemRecord(i, v["base"]*rand_multiple)
+    stocks.append(r)
+  return stocks 
 
 # return initial stocks by configuration, factory name and warehouse type
 def default_stocks(cfg, fname, wtype):
-    if fname == FName.aircraft_assembly:
-        if wtype == WType.products:
-            return init_stocks_p(cfg, fname, [IName.aircraft])
-        elif wtype == WType.materials:
-            return init_stocks_m(cfg, fname,\
-                                 [IName.plastic_gear,\
-                                  IName.plastic_lever,\
-                                  IName.plastic_enclosure,\
-                                  IName.iron_gear,\
-                                  IName.iron_lever,\
-                                  IName.iron_enclosure,\
-                                  IName.alum_gear,\
-                                  IName.alum_lever,\
-                                  IName.alum_enclosure])
-    
-    elif fname == FName.automobile_assembly:
-        if wtype == WType.products:
-            return init_stocks_p(cfg, fname, [IName.automobile])
-        elif wtype == WType.materials:
-            return init_stocks_m(cfg, fname,\
-                                 [IName.plastic_gear,\
-                                  IName.plastic_lever,\
-                                  IName.plastic_enclosure,\
-                                  IName.iron_gear,\
-                                  IName.iron_lever,\
-                                  IName.iron_enclosure,\
-                                  IName.alum_gear,\
-                                  IName.alum_lever,\
-                                  IName.alum_enclosure])
-    elif fname == FName.plastic_parts:
-        if wtype == WType.products:
-            return init_stocks_p(cfg, fname,\
-                                 [IName.plastic_gear,\
-                                  IName.plastic_lever,\
-                                  IName.plastic_enclosure])
-        elif wtype == WType.materials:
-            return init_stocks_m(cfg, fname,\
-                                 [IName.pvc,\
-                                  IName.pvc_hb])
-    elif fname == FName.iron_parts:
-        if wtype == WType.products:
-            return init_stocks_p(cfg, fname,\
-                                 [IName.iron_gear,\
-                                  IName.iron_lever,\
-                                  IName.iron_enclosure])
-        elif wtype == WType.materials:
-            return init_stocks_m(cfg, fname,\
-                                 [IName.iron_shcc,\
-                                  IName.iron_spcc])
-    elif fname == FName.alum_parts:
-        if wtype == WType.products:
-            return init_stocks_p(cfg, fname,\
-                                 [IName.alum_gear,\
-                                  IName.alum_lever,\
-                                  IName.alum_enclosure])
-        elif wtype == WType.materials:
-            return init_stocks_m(cfg, fname,\
-                                 [IName.alum_shcc,\
-                                  IName.alum_spcc])
-    else:
-        print("Warning: Add new stocks!")
-        pass
-    return []
+  return _init_stocks(cfg, fname, wtype)

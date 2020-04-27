@@ -20,52 +20,10 @@ class Config:
         self.__cfg_factory(xls)
         self.__cfg_stocks(xls)
         
-        #  TODO
-        # 生产/消耗速度
-        # 基数
-        self.ratebase = {
-            IName.aircraft: 1,
-            IName.automobile: 1,
-            IName.plastic_gear: 4,
-            IName.plastic_lever: 2,
-            IName.plastic_enclosure: 1,
-            IName.iron_gear: 4,
-            IName.iron_lever: 2,
-            IName.iron_enclosure: 1,
-            IName.alum_gear: 4,
-            IName.alum_lever: 2,
-            IName.alum_enclosure: 1,
-            IName.pvc: 2,
-            IName.pvc_hb: 1,
-            IName.iron_shcc: 2,
-            IName.iron_spcc: 1,
-            IName.alum_shcc: 2,
-            IName.alum_spcc: 1,
-        }
-        # 倍数
-        self.ratemul = {
-            FName.aircraft_assembly: {
-                WType.products: 2,
-                WType.materials: 500,
-            },
-            FName.automobile_assembly: {
-                WType.products: 100,
-                WType.materials: 500,
-            },
-            FName.plastic_parts: {
-                WType.products: 500,
-                WType.materials: 50,
-            },
-            FName.iron_parts: {
-                WType.products: 500,
-                WType.materials: 50,
-            },
-            FName.alum_parts: {
-                WType.products: 500,
-                WType.materials: 50,
-            },
-        }
-        
+        # TODO
+        #   电厂
+        #   居民区
+        #   5%浮动
         
         """self.crudeoil          
         self.hydrogen          
@@ -93,7 +51,7 @@ class Config:
         
     def init_db(self):
         print("<TODO> Init DB tables")
-        
+    # TODO: init by warehouse goods ratebase ratio!!!   
     def get_init_qty(self, fname, wtype, iname):
         return rand_qty(self.f_stocks[fname][wtype][iname]["base"],
                       self.f_stocks[fname][wtype][iname]["ul"])
@@ -154,6 +112,7 @@ class Config:
           warehouses[key_w] = items
           self.f_stocks[key_f] = warehouses
         self.__cal_bom()
+        self.__fac_rate()
           
     def __cal_bom(self):
       self.bom = {}
@@ -164,10 +123,41 @@ class Config:
           materials[k_m] = v_m["rate"]/min_qty
         self.bom[k_f] = materials
       #print(self.bom)
+    
+    # calculate ratebase and ratemul so that: rate = ratebase*ratemul
+    def __fac_rate(self):
+      self.ratebase = {} # for each factory+warehouse+item
+      self.ratemul = {}  # 倍数：for each factory+warehouse
+      
+      for k_f,v_f in self.f_stocks.items():
+        rb = {}
+        rm = {}
+        # 成品库
+        rb_prod = {}
+        min_qty = get_min_qty(v_f[WType.products])
+        for k,v in v_f[WType.products].items():
+          rb_prod[k] = v["rate"]/min_qty
+          if rb_prod[k] == 1:
+            rm[WType.products] = v["rate"]
+        rb[WType.products] = rb_prod
+        # 原料库
+        rb_matr = {}
+        min_qty = get_min_qty(v_f[WType.materials])
+        for k,v in v_f[WType.materials].items():
+          rb_matr[k] = v["rate"]/min_qty
+          if rb_matr[k] == 1:
+            rm[WType.materials] = v["rate"]
+        rb[WType.materials] = rb_matr
+        
+        self.ratebase[k_f] = rb
+        self.ratemul[k_f] = rm
+      #print(self._ratebase)
+      #print(self.ratemul)
+      
 
-def get_min_qty(dict_prod):
+def get_min_qty(dic):
   min_qty = float("inf")  # 正无穷
-  for k,v in dict_prod.items():
+  for k,v in dic.items():
     if v["rate"] < min_qty:
       min_qty = v["rate"]
   return min_qty
