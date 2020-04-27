@@ -7,7 +7,7 @@ Created on Tue Apr 21 13:10:37 2020
 
 import random
 
-from constant import WType, IName, FName
+from constant import WType
 from item import ItemRecord
 
 class Warehouse:
@@ -50,7 +50,7 @@ class MWarehouse(Warehouse):
 
 # assumption: fname + wtype => goods on stock
 #def _init_stocks(cfg, fname, names, wtype):
-def _init_stocks(cfg, fname, wtype):
+def init_stocks(cfg, fname, wtype):
   # calculate the minimal multiple (ul/base) of goods
   min_multiple = float("inf") 
   for i,v in cfg.f_stocks[fname][wtype].items():
@@ -67,5 +67,5 @@ def _init_stocks(cfg, fname, wtype):
   return stocks 
 
 # return initial stocks by configuration, factory name and warehouse type
-def default_stocks(cfg, fname, wtype):
-  return _init_stocks(cfg, fname, wtype)
+#def default_stocks(cfg, fname, wtype):
+#  return _init_stocks(cfg, fname, wtype)

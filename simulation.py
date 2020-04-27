@@ -22,22 +22,14 @@ class Simulation:
         self.orders = queue.Queue()
         
         # init static info
-        self.f_aircraft = []
-        self.f_automobile = []
-        self.f_plastic_parts = []
-        self.f_iron_parts = []
-        self.f_alum_parts = []
-        
-        for i in range(cfg.f_num[constant.FName.aircraft_assembly]):
-            self.f_aircraft.append(get_newf(cfg, constant.FName.aircraft_assembly))
-        for i in range(cfg.f_num[constant.FName.automobile_assembly]):
-            self.f_automobile.append(get_newf(cfg, constant.FName.automobile_assembly))
-        for i in range(cfg.f_num[constant.FName.plastic_parts]):
-            self.f_plastic_parts.append(get_newf(cfg, constant.FName.plastic_parts))
-        for i in range(cfg.f_num[constant.FName.iron_parts]):
-            self.f_iron_parts.append(get_newf(cfg, constant.FName.iron_parts))
-        for i in range(cfg.f_num[constant.FName.alum_parts]):
-            self.f_alum_parts.append(get_newf(cfg, constant.FName.alum_parts))
+        self.dict_f = {}
+        skip_list = [constant.FName.power_station]
+        for fname in constant.dict_fname.values():
+          if fname not in skip_list:
+            factories = []
+            for i in range(cfg.f_num[fname]):
+              factories.append(get_newf(cfg, fname))
+            self.dict_f[fname] = factories
         
     def run(self):
         print("Start simulation...")
@@ -45,8 +37,8 @@ class Simulation:
         self.config.init_db()
         
         oid = 1 # initial oid
-        supplier = self.f_aircraft[0]
-        r = ItemRecord(constant.IName.aircraft, 60)
+        supplier = self.select_supplier(constant.FName.aircraft_assembly)
+        r = ItemRecord(constant.IName.aircraft, 100)
         order = Order("Engine", supplier)
         oid += 1
         order.add(r)
@@ -59,41 +51,19 @@ class Simulation:
             order.display()
             m4order = order.supplier.calMaterials(order.goods, self.config)
             tools.print_list(m4order, "需要订购的原料")
-            
-            print("\n<TODO> 安排生产链")
-            # 根据需求原料，生成订单到下游工厂
-            demand_p = get_demand(m4order, [constant.IName.plastic_gear,
-                                             constant.IName.plastic_lever,
-                                             constant.IName.plastic_enclosure])
-            if len(demand_p) > 0:
-              demander = order.supplier.name
-              supplier = self.f_plastic_parts[0]
-              order_new = Order(demander, supplier)
-              order_new.goods = demand_p
-              self.orders.put(order_new)
+
+            print("\n<TODO> 根据需求原料，生成订单到下游工厂")
+            m_suppliers = order.supplier.get_suppliers_list()
+            for fname in m_suppliers:
+              inames = self.config.f_stocks[fname][constant.WType.products].keys()
+              demand = get_demand(m4order, inames)
               
-            demand_i = get_demand(m4order, [constant.IName.iron_gear,
-                                             constant.IName.iron_lever,
-                                             constant.IName.iron_enclosure])
-            if len(demand_i) > 0:
-              demander = order.supplier.name
-              supplier = self.f_iron_parts[0]
-              order_new = Order(demander, supplier)
-              order_new.goods = demand_i
-              self.orders.put(order_new)
-              
-            demand_a = get_demand(m4order, [constant.IName.alum_gear,
-                                             constant.IName.alum_lever,
-                                             constant.IName.alum_enclosure])
-            if len(demand_i) > 0:
-              demander = order.supplier.name
-              supplier = self.f_alum_parts[0]
-              order_new = Order(demander, supplier)
-              order_new.goods = demand_a
-              self.orders.put(order_new)
-              
-            
-            
+              if len(demand) > 0:
+                demander = order.supplier.name
+                supplier = self.select_supplier(fname)
+                order_new = Order(demander, supplier)
+                order_new.goods = demand
+                self.orders.put(order_new)
             
             # arrange production
         # 
@@ -110,13 +80,18 @@ class Simulation:
       with open(csvfile, 'w', newline='') as h:
         w = csv.writer(h)
         w.writerow(["厂名","Id","仓库","品名","订购总数","当前库存","已完成数量","生产/消耗速度","预计完工时间"])
-        _save_log_f(w, self.f_aircraft)
-        _save_log_f(w, self.f_automobile)
-        _save_log_f(w, self.f_plastic_parts)
-        _save_log_f(w, self.f_iron_parts)
-        _save_log_f(w, self.f_alum_parts)
+        
+        skip_list = [constant.FName.power_station]
+        for fname in constant.dict_fname.values():
+          if fname not in skip_list:
+            _save_log_f(w, self.dict_f[fname])
      
       h.close()
+      
+    def select_supplier(self, fname):
+      # TODO
+      return self.dict_f[fname][0]
+      
         
 # helper function for save_log
 def _save_log_f(writer, lst_f):

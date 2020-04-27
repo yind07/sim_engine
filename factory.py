@@ -7,10 +7,10 @@ Created on Sat Apr 18 16:55:30 2020
 
 import math
 
-from warehouse import *
+from warehouse import PWarehouse, MWarehouse, init_stocks
 from item import ItemRecord
-from constant import IName, FName, WType, FStatus
-import tools
+from constant import FName, WType, FStatus
+#import tools
 
 class Factory:
     def __init__(self, fname, pwh, mwh, status, cfg):
@@ -39,8 +39,10 @@ class Factory:
         for g in self.pwarehouse.stocks:
             for og in order_goods:
                 if og.name == g.name:
+                  if og.qty <= g.qty:
+                    print("%s: 订购 %d, 库存 %d, 足够，无需订购" % (og.name, og.qty, g.qty))
+                  else:  
                     print("%s: 订购 %d, 库存 %d, 还需 %d" % (og.name, og.qty, g.qty, og.qty-g.qty))
-                    #bom = cfg.bom[og.name]
                     bom = cfg.bom[self.name]
                     #print(bom)
                     
@@ -62,25 +64,44 @@ class Factory:
                 #print("%s 库存够！" % m.name)
             materials.append(ItemRecord(g.name, qty))
         return materials
+    
+    # return materials suppliers list
+    def get_suppliers_list(self):
+      if self.name in [FName.aircraft_assembly, FName.automobile_assembly]:
+        return [FName.plastic_parts, FName.iron_parts, FName.alum_parts]
+      elif self.name == FName.plastic_parts:
+        return [FName.chemical]
+      elif self.name in [FName.iron_parts, FName.alum_parts]:
+        return [FName.hot_rolling, FName.cold_rolling]
+      elif self.name in [FName.hot_rolling, FName.cold_rolling]:
+        return [FName.iron_making, FName.alum_making]
+      elif self.name == FName.chemical:
+        return [FName.petrochemical]
+      else:
+        return []
 
 # get the most enough materials supply      
 def get_lst_materials(dict_m):
   #tools.print_dict(dict_m, "require")
   qty = 0
+  key = -1
   for k,v in dict_m.items():
     for i in v:
       if qty < i.qty:
         qty = i.qty
         key = k
         break
-  return dict_m[key]
+  if key != -1:
+    return dict_m[key]
+  else:
+    return {}
 
 # return a new factory by fname and initial configuration(static)
 def get_newf(cfg, fname):
     return Factory(fname,\
-                   PWarehouse(default_stocks(cfg, fname, WType.products),
+                   PWarehouse(init_stocks(cfg, fname, WType.products),
                               cfg.ratemul[fname][WType.products]),\
-                   MWarehouse(default_stocks(cfg, fname, WType.materials),
+                   MWarehouse(init_stocks(cfg, fname, WType.materials),
                               cfg.ratemul[fname][WType.materials]),\
                    FStatus.normal, cfg)
     

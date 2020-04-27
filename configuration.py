@@ -153,7 +153,6 @@ class Config:
         self.ratemul[k_f] = rm
       #print(self._ratebase)
       #print(self.ratemul)
-      
 
 def get_min_qty(dic):
   min_qty = float("inf")  # 正无穷
