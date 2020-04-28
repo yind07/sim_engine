@@ -23,18 +23,20 @@ class Warehouse:
         for i in self.stocks:
             s += "\n    %s" % i
         return s
-    
+
 class PWarehouse(Warehouse):
-    def __init__(self, stocks, rm):
+    def __init__(self, stocks, rm, rb):
         self.type = WType.products
         self.stocks = stocks
         self.rate_mul = rm
+        self.rate_base = rb
 
 class MWarehouse(Warehouse):
-    def __init__(self, stocks, rm):
+    def __init__(self, stocks, rm, rb):
         self.type = WType.materials
         self.stocks = stocks
         self.rate_mul = rm
+        self.rate_base = rb
     
     # Return: 当前库存原料可以生产的最大成品数
     # mcfgs: dict - 生产一个成品的原料数量配比，例如BOM表
@@ -45,7 +47,21 @@ class MWarehouse(Warehouse):
             if mp < min_qty:
                 min_qty = mp
         return min_qty
-        
+
+    # 按当前原料库存和消耗率，当天最多消耗多少份原料(一份配比为ratebase)
+    # 如果原料不够一天生产，则按比例生产成品！
+    def maxDailyConsumption(self):
+        min_qty = float("inf")  # 正无穷
+        for m in self.stocks:
+          if not m.hasEnough(1):
+            return 0
+          mc = m.qty/self.rate_base[m.name]
+          if mc < min_qty:
+            min_qty = mc
+        if mc > self.rate_mul:
+          return self.rate_mul
+        return mc
+      
 # helper functions
 
 # assumption: fname + wtype => goods on stock

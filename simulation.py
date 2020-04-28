@@ -33,9 +33,22 @@ class Simulation:
         
     def run(self):
         print("Start simulation...")
-        
         self.config.init_db()
         
+        t = 0 # start time - The beginning of Day One
+        # test
+        cnt = 5
+        while cnt > 0:
+          print("Manufacturing...")
+          skip_list = [constant.FName.power_station]
+          for fname in constant.dict_fname.values():
+            if fname not in skip_list:
+              for f in self.dict_f[fname]:
+                f.run()
+          cnt -= 1
+          
+        
+        """
         oid = 1 # initial oid
         supplier = self.select_supplier(constant.FName.aircraft_assembly)
         r = ItemRecord(constant.IName.aircraft, 100)
@@ -64,6 +77,7 @@ class Simulation:
                 order_new = Order(demander, supplier)
                 order_new.goods = demand
                 self.orders.put(order_new)
+        """
             
             # arrange production
         # 

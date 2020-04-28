@@ -16,8 +16,6 @@ Created on Sat Apr 18 16:59:15 2020
 
 import math
 
-from enum import Enum
-
 # item + quantity
 class ItemRecord:
     ## rate_base: 消耗/生产速度的基数，

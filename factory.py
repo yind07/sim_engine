@@ -21,8 +21,7 @@ class Factory:
         self.status = status
         self.power_consumption = cfg.f_pc[fname]
         self.maintenance_len = cfg.f_mlen[fname]
-        
-        
+
     def __str__(self):
         s = "%s: %s\n" % (self.name, self.status)
         s += "  耗电（1000Kwh/周期）： %d\n" % self.power_consumption
@@ -31,6 +30,29 @@ class Factory:
         s += "  %s" % self.mwarehouse
         return s
     
+    # periodic manufacture if possible
+    def run(self):
+      if self.status == FStatus.normal:
+        self.produce()
+
+    # 按消耗/生产比例周期生产（原料减少，成品增加）
+    def produce(self):
+      print("生产前：\n%s" % self)
+      # 消耗原料
+      mul = self.mwarehouse.maxDailyConsumption()
+      print("daily materials consumption multiple: %d" % mul)
+      if mul > 0:
+        for i in self.mwarehouse.stocks:
+          qty = self.mwarehouse.rate_base[i.name]*mul
+          i.dec(qty)
+  
+        # 生产成品
+        for i in self.pwarehouse.stocks:
+          qty = self.pwarehouse.rate_base[i.name]*mul*self.pwarehouse.rate_mul/self.mwarehouse.rate_mul
+          i.inc(qty)
+        
+      print("生产后：\n%s" % self)
+      
     # calculate minimal multiple of required materials's formula unit, such as:
     # required materials formula unit {x: qty1, y: qty2}
     def calMaterials(self, order_goods, cfg):
@@ -100,9 +122,11 @@ def get_lst_materials(dict_m):
 def get_newf(cfg, fname):
     return Factory(fname,\
                    PWarehouse(init_stocks(cfg, fname, WType.products),
-                              cfg.ratemul[fname][WType.products]),\
+                              cfg.ratemul[fname][WType.products],
+                              cfg.ratebase[fname][WType.products]),\
                    MWarehouse(init_stocks(cfg, fname, WType.materials),
-                              cfg.ratemul[fname][WType.materials]),\
+                              cfg.ratemul[fname][WType.materials],
+                              cfg.ratebase[fname][WType.materials]),\
                    FStatus.normal, cfg)
     
 # return list of total required materials by BOM table and qty    
