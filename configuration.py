@@ -19,11 +19,11 @@ class Config:
         #print("%s %s %s" % (self.ip, self.username, self.password))
         self.__cfg_factory(xls)
         self.__cfg_stocks(xls)
+        self.deviation = 0.05  # 5%浮动，消耗/生产速度偏差(+/-)
         
         # TODO
         #   电厂
         #   居民区
-        #   5%浮动
         
         """self.crudeoil          
         self.hydrogen          
@@ -153,6 +153,11 @@ class Config:
         self.ratemul[k_f] = rm
       #print(self._ratebase)
       #print(self.ratemul)
+
+    # return randome deviation within [-self.deviation, +self.deviation]
+    def rand_deviation(self):
+      multiple = 100 # precision == 2, ~0.01
+      return random.randrange(multiple*self.deviation*2+1)/multiple - self.deviation
 
 def get_min_qty(dic):
   min_qty = float("inf")  # 正无穷

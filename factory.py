@@ -21,6 +21,7 @@ class Factory:
         self.status = status
         self.power_consumption = cfg.f_pc[fname]
         self.maintenance_len = cfg.f_mlen[fname]
+        self.cfg = cfg
 
     def __str__(self):
         s = "%s: %s\n" % (self.name, self.status)
@@ -38,17 +39,20 @@ class Factory:
     # 按消耗/生产比例周期生产（原料减少，成品增加）
     def produce(self):
       print("生产前：\n%s" % self)
+      deviation = self.cfg.rand_deviation()
+      rate = 1+deviation
+      print("deviation: %.2f, rate: %.2f" % (deviation,rate))
       # 消耗原料
       mul = self.mwarehouse.maxDailyConsumption()
       print("daily materials consumption multiple: %d" % mul)
       if mul > 0:
         for i in self.mwarehouse.stocks:
-          qty = self.mwarehouse.rate_base[i.name]*mul
+          qty = self.mwarehouse.rate_base[i.name]*mul*rate
           i.dec(qty)
   
         # 生产成品
         for i in self.pwarehouse.stocks:
-          qty = self.pwarehouse.rate_base[i.name]*mul*self.pwarehouse.rate_mul/self.mwarehouse.rate_mul
+          qty = self.pwarehouse.rate_base[i.name]*mul*self.pwarehouse.rate_mul/self.mwarehouse.rate_mul*rate
           i.inc(qty)
         
       print("生产后：\n%s" % self)
