@@ -25,6 +25,8 @@ class Warehouse:
         return s
 
 class PWarehouse(Warehouse):
+    ## rate_base: 消耗/生产速度的基数，
+    ## 原料 – 消耗速度；成品 – 生产速度
     def __init__(self, stocks, rm, rb):
         self.type = WType.products
         self.stocks = stocks

@@ -18,11 +18,12 @@ import math
 
 # item + quantity
 class ItemRecord:
-    ## rate_base: 消耗/生产速度的基数，
-    ## 原料 – 消耗速度；成品 – 生产速度
     def __init__(self, iname, qty):
         self.name = iname
         self.qty = qty
+        # save periodic produce/consume rate, for daily log
+        # it's actual value (including random deviation)
+        self.reset_dr()
         
     def __str__(self):
         return "%s (qty=%d)" % (self.name, self.qty)
@@ -39,6 +40,11 @@ class ItemRecord:
     def mul(self, multiple):
         self.qty *= multiple
         return self
+    # reset daily rate  
+    def reset_dr(self):
+        self.daily_rate = 0
+    def set_dr(self, dr):
+        self.daily_rate = dr
     
     # unit_num: 生产一个成品的需求量, constraint: >0
     def maxProductQty(self, unit_num):

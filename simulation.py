@@ -46,6 +46,9 @@ class Simulation:
               for f in self.dict_f[fname]:
                 f.run()
           cnt -= 1
+          t += 1
+          logfile = "logs\\log_%d.csv" % t
+          self.save_log(logfile)
           
         
         """
@@ -112,8 +115,10 @@ def _save_log_f(writer, lst_f):
   for i, f in enumerate(lst_f):
     # 成品库
     for item in f.pwarehouse.stocks:
-      writer.writerow([f.name,i+1,constant.WType.products,item.name,"?",item.qty,"?","?","?"])
+      writer.writerow([f.name,i+1,constant.WType.products,item.name,"?",item.qty,"?",item.daily_rate,"?"])
+      item.reset_dr()
     # 原料库
     for item in f.mwarehouse.stocks:
-      writer.writerow([f.name,i+1,constant.WType.materials,item.name,"?",item.qty,"?","?","?"])
+      writer.writerow([f.name,i+1,constant.WType.materials,item.name,"?",item.qty,"?",item.daily_rate,"?"])
+      item.reset_dr()
             

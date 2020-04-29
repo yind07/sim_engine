@@ -41,20 +41,32 @@ class Factory:
       print("生产前：\n%s" % self)
       deviation = self.cfg.rand_deviation()
       rate = 1+deviation
+      #skip_list = [FName.aircraft_assembly, FName.automobile_assembly]
+      
       print("deviation: %.2f, rate: %.2f" % (deviation,rate))
       # 消耗原料
       mul = self.mwarehouse.maxDailyConsumption()
       print("daily materials consumption multiple: %d" % mul)
       if mul > 0:
+        # 成品
+        for i in self.pwarehouse.stocks:
+          qty_ideal = self.pwarehouse.rate_base[i.name]*mul*self.pwarehouse.rate_mul/self.mwarehouse.rate_mul
+          qty = math.floor(qty_ideal*rate) # ensure integer qty
+          rate = qty/qty_ideal # re-calculate rate!!
+          i.inc(qty)
+          i.set_dr(qty)
+
+        # 原料
         for i in self.mwarehouse.stocks:
           qty = self.mwarehouse.rate_base[i.name]*mul*rate
+          # just in case materials are all used up
+          # which should be avoided by set proper logistics
+          # and bottom limit constraints of materials
+          if i.qty < qty:
+            qty = i.qty
           i.dec(qty)
-  
-        # 生产成品
-        for i in self.pwarehouse.stocks:
-          qty = self.pwarehouse.rate_base[i.name]*mul*self.pwarehouse.rate_mul/self.mwarehouse.rate_mul*rate
-          i.inc(qty)
-        
+          i.set_dr(qty)
+
       print("生产后：\n%s" % self)
       
     # calculate minimal multiple of required materials's formula unit, such as:
