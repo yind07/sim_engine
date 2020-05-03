@@ -15,6 +15,7 @@ Created on Sat Apr 18 16:59:15 2020
 #
 
 import math
+from constant import IName
 
 # item + quantity
 class ItemRecord:
@@ -33,7 +34,33 @@ class ItemRecord:
         
     def dec(self, qty):
         self.qty -= qty
-        
+    
+    def is_part(self):
+        return self.name in [IName.plastic_gear,
+                             IName.plastic_lever,
+                             IName.plastic_enclosure,
+                             IName.iron_gear,
+                             IName.iron_lever,
+                             IName.iron_enclosure,
+                             IName.alum_gear,
+                             IName.alum_lever,
+                             IName.alum_enclosure]
+    def is_raw(self):
+        return self.name in [IName.crudeoil,
+                             IName.hydrogen,
+                             IName.alumina,
+                             IName.ironstone,
+                             IName.bauxite]
+    # decrease 50% qty of current item record,
+    # return decreased quantity
+    def halve(self):
+        qty = self.qty/2
+        if self.is_part():
+          qty = math.floor(qty)
+        self.dec(qty)
+        #print(">> halve(): %s库存 减少 %.2f，现有 %.2f" % (self.name, qty, self.qty))
+        return qty
+      
     def hasEnough(self, qty):
         return self.qty >= qty
     

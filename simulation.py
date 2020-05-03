@@ -9,21 +9,26 @@ Created on Fri Apr 17 18:50:00 2020
 from factory import get_newf
 from order import Order, get_demand
 from item import ItemRecord
+from event import Event
 import constant
-import tools
+#import tools
 
 import queue
 import csv
+import random
 
 class Simulation:
+    _tag = 0 # 0: order aircraft, 1: order automobile
     def __init__(self, cfg, sec=1):
         self.config = cfg
         self.period_by_sec = sec
         self.orders = queue.Queue()
+        self.events = queue.PriorityQueue()
         
         # init static info
         self.dict_f = {}
-        skip_list = [constant.FName.power_station]
+        skip_list = [constant.FName.power_station,
+                     constant.FName.harbor]
         for fname in constant.dict_fname.values():
           if fname not in skip_list:
             factories = []
@@ -32,55 +37,74 @@ class Simulation:
             self.dict_f[fname] = factories
         
     def run(self):
-        print("Start simulation...")
+        print("\nStart simulation...")
         self.config.init_db()
         
-        t = 0 # start time - The beginning of Day One
-        # test
-        cnt = 5
-        while cnt > 0:
-          print("Manufacturing...")
-          skip_list = [constant.FName.power_station]
-          for fname in constant.dict_fname.values():
-            if fname not in skip_list:
-              for f in self.dict_f[fname]:
-                f.run()
-          cnt -= 1
-          t += 1
-          logfile = "logs\\log_%d.csv" % t
-          self.save_log(logfile)
-          
+        # start time - Day 0 - to initiate the engine
+        # why 0 instead of 1?
+        # To avoid actions outside the loop!
+        t = 0
         
         """
-        oid = 1 # initial oid
-        supplier = self.select_supplier(constant.FName.aircraft_assembly)
-        r = ItemRecord(constant.IName.aircraft, 100)
-        order = Order("Engine", supplier)
-        oid += 1
-        order.add(r)
-        self.orders.put(order)
-        
-        self.save_log("logs\\test.csv")
-        
-        while not self.orders.empty():
-            order = self.orders.get()
-            order.display()
-            m4order = order.supplier.calMaterials(order.goods, self.config)
-            tools.print_list(m4order, "需要订购的原料")
+        Periodic manufacturing process:
+        1.  物流处理、生产并记录（NOT for Day 0）
+        2.  如果总订单数未达上限，产生新订单
+        3.  检查订单（老订单未结束？/有新订单？），
+            安排、预测下周期生产/物流
+        4.  根据设定周期长短，调整时间(by delaying certain time)
+        """
+        while True: #cnt > 0:
+          print("\n ===== Day %d =====" % t)
 
-            print("\n<TODO> 根据需求原料，生成订单到下游工厂")
-            m_suppliers = order.supplier.get_suppliers_list()
-            for fname in m_suppliers:
-              inames = self.config.f_stocks[fname][constant.WType.products].keys()
-              demand = get_demand(m4order, inames)
-              
-              if len(demand) > 0:
-                demander = order.supplier.name
-                supplier = self.select_supplier(fname)
-                order_new = Order(demander, supplier)
-                order_new.goods = demand
-                self.orders.put(order_new)
-        """
+          if t > 0:
+            print("[Step 1]: 物流处理、生产并记录")
+            # 物流处理
+            self.handle_supplies(t)
+            # 生产
+            skip_list = [constant.FName.power_station,
+                         constant.FName.harbor]
+            for fname in constant.dict_fname.values():
+              if fname not in skip_list:
+                for f in self.dict_f[fname]:
+                  f.run()
+                  
+            # 记录
+            logfile = "logs\\log_%d.csv" % t
+            self.save_log(logfile)
+          
+          num_orders = self.orders.qsize()
+          print("[Step 2]: 按情况产生新订单, 当前排队订单数 = %d" % num_orders)
+          if num_orders < self.config.max_orders and t <= 50:
+            self.orders.put(self.get_new_order(10,15))
+            
+          print("[Step 3]: 检查订单状态，安排、预测下周期生产/物流")
+          if t > 0 and not current_order.finished():
+              print("继续当前订单：原料进货下限检查，物流安排；成品停产上限检查，停产(TODO)")
+              skip_list = [constant.FName.power_station,
+                           constant.FName.harbor]
+              for fname in constant.dict_fname.values():
+                if fname not in skip_list:
+                  for f in self.dict_f[fname]:
+                    self.arrange(f, t)
+                  
+          else: # t == 0 or current order is finished  
+            if not self.orders.empty():
+              if t > 0:
+                print("$$$ 完成订单 %d, ready for next Order!" % current_order.oid)
+                supplier.reset_order()
+              current_order = self.orders.get()
+              #current_order.display()
+              print(">> 安排生产链、物流") # 安排下游工厂生产、物流
+              # choose supplier
+              supplier = self.select_supplier(current_order.supplier_name)
+              supplier.set_order(current_order)
+              #self.plan(supplier)
+            else:
+              print("$$$ 没有后续订单，记录一下，退出了！")
+              break
+          
+          print("[Step 4]: 调整时间 - <TODO>")
+          t += 1
             
             # arrange production
         # 
@@ -90,15 +114,72 @@ class Simulation:
         #   if time_length_sofar < self.period_by_sec:
         #       continue check attack
         #
-        # 
-     
+        #
+    # 物流处理 - 每天开始生产前
+    def handle_supplies(self, t):
+      print(">>> handle_supplies: events size %d" % self.events.qsize())
+      while not self.events.empty():
+        e = self.events.get()
+        if e.time > t:
+          self.events.put(e) # put it back
+          break
+        # processing
+        if e.type == constant.EventType.order:
+          # a. 获取单次物流的原料补充量
+          goods = self.get_m_supplies(e.dest)
+          # b. 添加相应deliver event
+          self.events.put(Event(e.time+1, constant.EventType.deliver,
+                                e.src, e.dest, e.id, goods))
+        # 补充原料库
+        elif e.type == constant.EventType.deliver:
+          self.inc_stocks(e.dest, e.id, e.goods)
+        else:
+          print("!! New event: %s" % e)
+
+    # 获取单次物流的原料补充量
+    def get_m_supplies(self, fname):
+      # specific handling for 基础工厂原料
+      if fname == constant.FName.harbor:
+        goods = {} # 港口进货
+      else:
+        # 减少50%成品库存
+        supplier = self.select_supplier(fname)
+        goods = supplier.pwarehouse.halve_stocks()
+      return goods
+    
+    def inc_stocks(self, fname, idx, goods):
+      f = self.dict_f[fname][idx]
+      f.mwarehouse.inc_stocks(goods,
+                              self.config.f_stocks[fname][constant.WType.materials])
+      f.status = constant.FStatus.normal
+
+    # 检查、安排物流(次日)    
+    def arrange(self, f, t):
+      # Avoid double recharge!!
+      if f.status == constant.FStatus.normal:
+        suppliers = f.check()
+        for name in suppliers:
+          self.events.put(Event(t+1, constant.EventType.order,
+                                name, f.name, 0, {}))
+        if len(suppliers) > 0:
+          f.status = constant.FStatus.recharge
+      
+    # plan the production - recursive!
+    def plan(self, f):
+      m_orders = f.plan()
+      for order in m_orders:
+        m_supplier = self.select_supplier(order.supplier_name)
+        m_supplier.set_order(order)
+        self.plan(m_supplier)
+                
     # write periodic log to DB and csv
     def save_log(self, csvfile):
       with open(csvfile, 'w', newline='') as h:
         w = csv.writer(h)
-        w.writerow(["厂名","Id","仓库","品名","订购总数","当前库存","已完成数量","生产/消耗速度","预计完工时间"])
+        w.writerow(["厂名","Id","状态","仓库","品名","订购总数","当前库存","已完成数量","生产/消耗速度","预计完工时间"])
         
-        skip_list = [constant.FName.power_station]
+        skip_list = [constant.FName.power_station,
+                     constant.FName.harbor]
         for fname in constant.dict_fname.values():
           if fname not in skip_list:
             _save_log_f(w, self.dict_f[fname])
@@ -109,16 +190,45 @@ class Simulation:
       # TODO
       return self.dict_f[fname][0]
       
-        
+    # return a new order:
+    # random numbers (初始库存基数 * [lbm, ubm])
+    def get_new_order(self, lbm, ubm):
+      if Simulation._tag == 0:
+        fname = constant.FName.aircraft_assembly
+        Simulation._tag = 1
+      else:
+        fname = constant.FName.automobile_assembly
+        Simulation._tag = 0
+      
+      # only one product!
+      for i,v in self.config.f_stocks[fname][constant.WType.products].items():
+        iname = i
+        base = v["base"]
+      qty = random.randint(lbm, ubm) * base
+      
+      #supplier = self.select_supplier(fname)
+      r = ItemRecord(iname, qty)
+      order = Order(fname)
+      order.add(r)      
+      order.display()
+      return order
+
 # helper function for save_log
 def _save_log_f(writer, lst_f):
   for i, f in enumerate(lst_f):
     # 成品库
     for item in f.pwarehouse.stocks:
-      writer.writerow([f.name,i+1,constant.WType.products,item.name,"?",item.qty,"?",item.daily_rate,"?"])
+      writer.writerow([f.name,i+1,f.status,constant.WType.products,
+                       item.name,
+                       f.get_ordered_qty(item.name), # 订购总数
+                       item.qty, # 当前库存
+                       f.get_qty_sum(item.name), # 已完成数量
+                       item.daily_rate, # 生产速度
+                       f.get_expected_tlen(item.name)]) # 还要多久完工
       item.reset_dr()
     # 原料库
     for item in f.mwarehouse.stocks:
-      writer.writerow([f.name,i+1,constant.WType.materials,item.name,"?",item.qty,"?",item.daily_rate,"?"])
+      writer.writerow([f.name,i+1,f.status,constant.WType.materials,
+                       item.name,"?",item.qty,"?",item.daily_rate,"?"])
       item.reset_dr()
             

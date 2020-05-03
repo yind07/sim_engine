@@ -59,6 +59,7 @@ class FName(Enum):
     automobile_assembly = 10 # 汽车总装厂
     aircraft_assembly   = 11 # 飞机总装厂
     power_station       = 12 # 发电厂
+    harbor              = 13 # 港口
     
     def __str__(self):
       for k,v in dict_fname.items():
@@ -113,18 +114,44 @@ class FStatus(Enum):
             return "暂停"
         elif self.name == "stop":
             return "停产"
+        elif self.name == "recharge":
+            return "触发物流"
         return "FStatus.NEW"
     
-    normal  = 1     # 正常（可运转、在运转）
-    pause   = 2     # 暂停（原料不够、成品达上限、维修、可恢复攻击）
-    stop    = 3     # 停产（不可恢复攻击、电量不够）
+    normal    = 1     # 正常（可运转、在运转） - 已用
+    pause     = 2     # 暂停（原料不够、成品达上限、维修、可恢复攻击）
+    stop      = 3     # 停产（不可恢复攻击、电量不够）
+    recharge  = 4     # 触发物流，原料补给中，防止连续两次物流 - 已用
+    
+# 订单状态    
+class OStatus(Enum):
+    def __str__(self):
+      for k,v in dict_ostatus.items():
+        if v == self:
+          return k
+      return ">>> New OStatus: %s" % self.name
+    
+    ongoing  = 1    # 处理中
+    finished = 2    # 已完成
 
-# 事件类型    
+# 事件类型（目前为物流）  
+class EventType(Enum):
+    order = 1
+    deliver = 2
+    
+    def __str__(self):
+      for k,v in dict_etype.items():
+        if v == self:
+          return k
+      return ">>> New EventType: %s" % self.name    
+
+"""    
 class EventType(Enum):
     attack  = 1     # 攻击
     maintain = 2    # 维修
     purchase = 3    # 进货（原料）/物流
     manufacture = 4 # 生产
+"""
 
 # name_str-FName mapping
 dict_fname = {
@@ -139,13 +166,20 @@ dict_fname = {
   "塑料零件厂": FName.plastic_parts,      
   "铁质零件厂": FName.iron_parts,         
   "铝质零件厂": FName.alum_parts,         
-  "发电厂":     FName.power_station,      
+  "发电厂":     FName.power_station,
+  "港口":       FName.harbor,
 }
 
 # name_str-WType mapping
 dict_wtype = {
   "原料库": WType.materials,
   "成品库": WType.products,
+}
+
+# name_str-WType mapping
+dict_ostatus = {
+  "处理中": OStatus.ongoing,
+  "已完成": OStatus.finished,
 }
 
 # name_str-IName mapping
@@ -176,4 +210,10 @@ dict_iname = {
   "铝质齿轮": IName.alum_gear,
   "铝质连杆": IName.alum_lever,
   "铝质外壳": IName.alum_enclosure,
+}
+
+# name_str-WType mapping
+dict_etype = {
+  "订购": EventType.order,
+  "收货": EventType.deliver,
 }

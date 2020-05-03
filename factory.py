@@ -7,10 +7,11 @@ Created on Sat Apr 18 16:55:30 2020
 
 import math
 
+import order
+import tools
 from warehouse import PWarehouse, MWarehouse, init_stocks
 from item import ItemRecord
-from constant import FName, WType, FStatus
-#import tools
+from constant import FName, WType, FStatus, OStatus, IName
 
 class Factory:
     def __init__(self, fname, pwh, mwh, status, cfg):
@@ -22,31 +23,102 @@ class Factory:
         self.power_consumption = cfg.f_pc[fname]
         self.maintenance_len = cfg.f_mlen[fname]
         self.cfg = cfg
+        self.order = None
 
     def __str__(self):
         s = "%s: %s\n" % (self.name, self.status)
         s += "  耗电（1000Kwh/周期）： %d\n" % self.power_consumption
         s += "  维修时长（周期）： %d\n" % self.maintenance_len
+        if self.order == None:
+          s += "  当前订单：无\n"
+        else:
+          s += "  当前订单：%s\n" % self.order
         s += "  %s\n" % self.pwarehouse
         s += "  %s" % self.mwarehouse
         return s
+    # return true for 总装厂， return false otherwise 
+    def is_assembly(self):
+      return self.name in [FName.aircraft_assembly,
+                           FName.automobile_assembly]
+      
+    def set_order(self, order):
+      self.order = order
+      self.qty_sum = {} # 订单内已完成数量
+      self.exp_tlen = {} # 多久完工？
+      # for ordered goods doesn't cover all products (like 热轧/冷轧厂)
+      # for r in order.goods:
+      for r in self.pwarehouse.stocks:
+        self.reset_order_props(r.name)
+        
+    def reset_order(self):
+      self.pwarehouse.dec_stocks(self.order.goods)
+      self.order = None
+      # for ordered goods doesn't cover all products (like 热轧/冷轧厂)
+      # for r in order.goods:
+      for r in self.pwarehouse.stocks:
+        self.reset_order_props(r.name)
+
+    # 订购总数
+    def get_ordered_qty(self, iname):
+      if self.order == None:
+        return 0
+      else:
+        return self.order.get_qty(iname)
     
+    # reset 订单内已完成数量 and 预期完工时间长度
+    def reset_order_props(self, iname):
+      self.qty_sum[iname] = 0
+      self.exp_tlen[iname] = 0
+      
+    # 订单内已完成数量 
+    def get_qty_sum(self, iname):
+      if self.order == None or iname not in self.qty_sum:
+        return 0
+      else:
+        return self.qty_sum[iname]
+      
+    def add_qty_sum(self, iname, qty):
+      if self.order != None:
+        if iname in self.qty_sum: # make sure the key exists!
+          self.qty_sum[iname] += qty
+        else:
+          print("!! %s doesn't have %s" % (self.name, iname))
+
+    # 预计完工时间长度（还要多少周期）
+    def get_expected_tlen(self, iname):
+      if self.order == None or iname not in self.exp_tlen:
+        return 0
+      else:
+        return self.exp_tlen[iname]
+    
+    def update_expected_tlen(self, iname, qty):
+      if self.order != None and iname in self.qty_sum:
+        total = self.get_ordered_qty(iname)
+        if total > qty: # calculate only when stock is not enough
+          rate = self.cfg.f_stocks[self.name][WType.products][iname]["rate"]
+          self.exp_tlen[iname] = math.ceil((total-qty)/rate)
+        else:
+          self.exp_tlen[iname] = 0
+
+    def can_produce(self):
+      # 反过来判断亦可 - 不处于停产/暂停状态 etc...
+      return self.status in [FStatus.normal, FStatus.recharge]
+
     # periodic manufacture if possible
     def run(self):
-      if self.status == FStatus.normal:
+      if self.can_produce():
         self.produce()
 
     # 按消耗/生产比例周期生产（原料减少，成品增加）
     def produce(self):
-      print("生产前：\n%s" % self)
+      #print("生产前：\n%s" % self)
       deviation = self.cfg.rand_deviation()
       rate = 1+deviation
-      #skip_list = [FName.aircraft_assembly, FName.automobile_assembly]
+      #print("deviation: %.2f, rate: %.2f" % (deviation,rate))
       
-      print("deviation: %.2f, rate: %.2f" % (deviation,rate))
       # 消耗原料
       mul = self.mwarehouse.maxDailyConsumption()
-      print("daily materials consumption multiple: %d" % mul)
+      #print("daily materials consumption multiple: %d" % mul)
       if mul > 0:
         # 成品
         for i in self.pwarehouse.stocks:
@@ -55,6 +127,14 @@ class Factory:
           rate = qty/qty_ideal # re-calculate rate!!
           i.inc(qty)
           i.set_dr(qty)
+          self.add_qty_sum(i.name, qty) # 订单内已完成数量
+          self.update_expected_tlen(i.name, i.qty)
+          # check/update order status
+          if self.is_assembly():
+            ordered_qty = self.get_ordered_qty(i.name)
+            if ordered_qty > 0 and i.qty >= ordered_qty:
+              self.order.status = OStatus.finished
+              #print("$$$ 完成订单 %d, ready for next Order!" % self.order.oid)
 
         # 原料
         for i in self.mwarehouse.stocks:
@@ -67,33 +147,66 @@ class Factory:
           i.dec(qty)
           i.set_dr(qty)
 
-      print("生产后：\n%s" % self)
+      #print("生产后：\n%s" % self)
+      
+    # 检查原料库存是否足够维持生产？
+    # 如果原料库存 <= 进货下限，标记下游厂家
+    # 返回需要供货的下游厂家名称集合
+    def check(self):
+      supplier_names = set()
+      for i in self.mwarehouse.stocks:
+        limit = self.cfg.f_stocks[self.name][WType.materials][i.name]["restock_limit"]
+        if i.qty <= limit:
+          #print("!! %s: %s 库存<=进货下限，库存 %d, 进货下限 %d" % (self.name, i.name, i.qty, limit))
+          supplier_names.add(get_supplier_name(i.name))
+      return supplier_names
+      
+    # 计算需要订购的原料，返回给下游工厂的订单list
+    def plan(self):
+      m_orders = []
+      m4order = self.calMaterials()
+      tools.print_list(m4order, ("%s 需要订购的原料" % self.name))
+      m_suppliers = self.get_suppliers_list() # 原料供应厂
+      for fname in m_suppliers:
+        inames = self.cfg.f_stocks[fname][WType.products].keys()
+        demand = order.get_demand(m4order, inames)
+        
+        if len(demand) > 0:
+          m_order = order.Order(fname)
+          m_order.set_demander(self.name, 0) # TODO id
+          m_order.goods = demand
+          
+          m_orders.append(m_order)
+      return m_orders
       
     # calculate minimal multiple of required materials's formula unit, such as:
     # required materials formula unit {x: qty1, y: qty2}
-    def calMaterials(self, order_goods, cfg):
+    #def calMaterials(self, order_goods, cfg):
+    def calMaterials(self):
+        if self.order == None:
+          return []
         # match supplier's end_products with order commodities
         dict_materials = {}
         for g in self.pwarehouse.stocks:
-            for og in order_goods:
+            for og in self.order.goods:
                 if og.name == g.name:
                   if og.qty <= g.qty:
                     print("%s: 订购 %d, 库存 %d, 足够，无需订购" % (og.name, og.qty, g.qty))
                   else:  
-                    print("%s: 订购 %d, 库存 %d, 还需 %d" % (og.name, og.qty, g.qty, og.qty-g.qty))
-                    bom = cfg.bom[self.name]
+                    #print("%s: 订购 %d, 库存 %d, 还需 %d" % (og.name, og.qty, g.qty, og.qty-g.qty))
+                    bom = self.cfg.bom[self.name]
                     #print(bom)
                     
-                    ratebase = cfg.ratebase[self.name][WType.products][g.name]
+                    ratebase = self.cfg.ratebase[self.name][WType.products][g.name]
                     maxp = self.mwarehouse.maxProductQty(bom)*ratebase
-                    rate = cfg.f_stocks[self.name][WType.products][g.name]["rate"]
+                    rate = self.cfg.f_stocks[self.name][WType.products][g.name]["rate"]
                     #print("每天生产 %d" % rate)
                     tlen = math.ceil(maxp/rate)
-                    print("目前库存原料最多可以生产%s：%d, 需要%d天（周期）" % (og.name, maxp, tlen))
-                    dict_materials[og.name] = self.calM4Order(get_required_materials(bom, og.qty-g.qty, ratebase), cfg)
+                    #print("目前库存原料最多可以生产%s：%d, 需要%d天（周期）" % (og.name, maxp, tlen))
+                    dict_materials[og.name] = self.calM4Order(get_required_materials(bom, og.qty-g.qty, ratebase))
         return get_lst_materials(dict_materials)
                             
-    def calM4Order(self, req_ms, cfg):
+    def calM4Order(self, req_ms):
         materials = []
         for g in self.mwarehouse.stocks:
             qty = req_ms[g.name]-g.qty
@@ -118,6 +231,32 @@ class Factory:
       else:
         return []
 
+def get_supplier_name(iname):
+  if iname in [IName.aircraft]:
+    return FName.aircraft_assembly
+  elif iname in [IName.automobile]:
+    return FName.automobile_assembly
+  elif iname in [IName.alum_gear, IName.alum_lever, IName.alum_enclosure]:
+    return FName.alum_parts
+  elif iname in [IName.plastic_gear, IName.plastic_lever, IName.plastic_enclosure]:
+    return FName.plastic_parts
+  elif iname in [IName.iron_gear, IName.iron_lever, IName.iron_enclosure]:
+    return FName.iron_parts
+  elif iname in [IName.iron_spcc, IName.alum_spcc]:
+    return FName.cold_rolling
+  elif iname in [IName.iron_shcc, IName.alum_shcc]:
+    return FName.hot_rolling
+  elif iname in [IName.pvc, IName.pvc_hb]:
+    return FName.chemical
+  elif iname in [IName.aluminium]:
+    return FName.alum_making
+  elif iname in [IName.iron]:
+    return FName.iron_making
+  elif iname in [IName.benzene, IName.toluene]:
+    return FName.petrochemical
+  elif iname in [IName.crudeoil, IName.hydrogen, IName.alumina, IName.ironstone, IName.bauxite]:
+    return FName.harbor
+
 # get the most enough materials supply      
 def get_lst_materials(dict_m):
   #tools.print_dict(dict_m, "require")
@@ -132,7 +271,7 @@ def get_lst_materials(dict_m):
   if key != -1:
     return dict_m[key]
   else:
-    return {}
+    return []
 
 # return a new factory by fname and initial configuration(static)
 def get_newf(cfg, fname):
