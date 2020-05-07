@@ -45,10 +45,17 @@ class Factory:
       self.order = order
       self.qty_sum = {} # 订单内已完成数量
       self.exp_tlen = {} # 多久完工？
+      self.ideal_tlen = {} # 计划多久？
+      self.actual_tlen = {} # 已经花费多久？
       # for ordered goods doesn't cover all products (like 热轧/冷轧厂)
       # for r in order.goods:
       for r in self.pwarehouse.stocks:
         self.reset_order_props(r.name)
+        # set ideal_tlen
+        total = self.get_ordered_qty(r.name)
+        if total > r.qty:
+          rate = self.cfg.f_stocks[self.name][WType.products][r.name]["rate"]
+          self.ideal_tlen[r.name] = math.ceil((total-r.qty)/rate)
         
     def reset_order(self):
       self.pwarehouse.dec_stocks(self.order.goods)
@@ -69,6 +76,8 @@ class Factory:
     def reset_order_props(self, iname):
       self.qty_sum[iname] = 0
       self.exp_tlen[iname] = 0
+      self.ideal_tlen[iname] = 0
+      self.actual_tlen[iname] = 0
       
     # 订单内已完成数量 
     def get_qty_sum(self, iname):
@@ -90,6 +99,20 @@ class Factory:
         return 0
       else:
         return self.exp_tlen[iname]
+      
+    def get_ideal_tlen(self, iname):
+      #if self.order == None or iname not in self.exp_tlen:
+      if self.order == None:
+        return 0
+      else:
+        return self.ideal_tlen[iname]
+    
+    def get_actual_tlen(self, iname):
+      #if self.order == None or iname not in self.exp_tlen:
+      if self.order == None:
+        return 0
+      else:
+        return self.actual_tlen[iname]
     
     def update_expected_tlen(self, iname, qty):
       if self.order != None and iname in self.qty_sum:
@@ -99,6 +122,14 @@ class Factory:
           self.exp_tlen[iname] = math.ceil((total-qty)/rate)
         else:
           self.exp_tlen[iname] = 0
+    
+    def update_actual_len(self):
+      if self.order != None:
+        for r in self.pwarehouse.stocks:
+          self.actual_tlen[r.name] += 1
+          
+    def get_daily_pc(self):
+      return 0 #TODO
 
     def can_produce(self):
       # 反过来判断亦可 - 不处于停产/暂停状态 etc...

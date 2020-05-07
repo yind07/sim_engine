@@ -16,12 +16,15 @@ import constant
 import queue
 import csv
 import random
+import datetime
+import time
 
 class Simulation:
     _tag = 0 # 0: order aircraft, 1: order automobile
-    def __init__(self, cfg, sec=1):
+    def __init__(self, cfg, db, sec=1):
         self.config = cfg
-        self.period_by_sec = sec
+        self.db = db
+        self.day_by_sec = sec
         self.orders = queue.Queue()
         self.events = queue.PriorityQueue()
         
@@ -51,12 +54,13 @@ class Simulation:
         2.  如果总订单数未达上限，产生新订单
         3.  检查订单（老订单未结束？/有新订单？），
             安排、预测下周期生产/物流
-        4.  根据设定周期长短，调整时间(by delaying certain time)
+        4.  根据设定周期长短，调整时间(NOT for Day 0)
         """
         while True: #cnt > 0:
           print("\n ===== Day %d =====" % t)
 
           if t > 0:
+            start = datetime.datetime.now()
             print("[Step 1]: 物流处理、生产并记录")
             # 物流处理
             self.handle_supplies(t)
@@ -67,14 +71,19 @@ class Simulation:
               if fname not in skip_list:
                 for f in self.dict_f[fname]:
                   f.run()
+                  f.update_actual_len()
                   
             # 记录
-            logfile = "logs\\log_%d.csv" % t
-            self.save_log(logfile)
+            # format example: 200507102338
+            timestamp = datetime.datetime.now().strftime("%y%m%d%H%M%S")
+            logfname = "logs\\log-%s-%d.csv" % (timestamp, t)
+            self.db.clear_table("daily_logs_new2")
+            #self.db.clear_table("daily_logs")
+            self.save_log(logfname)
           
           num_orders = self.orders.qsize()
           print("[Step 2]: 按情况产生新订单, 当前排队订单数 = %d" % num_orders)
-          if num_orders < self.config.max_orders and t <= 50:
+          if num_orders < self.config.max_orders and t <= 20:
             self.orders.put(self.get_new_order(10,15))
             
           print("[Step 3]: 检查订单状态，安排、预测下周期生产/物流")
@@ -103,15 +112,20 @@ class Simulation:
               print("$$$ 没有后续订单，记录一下，退出了！")
               break
           
-          print("[Step 4]: 调整时间 - <TODO>")
+          if t > 0:
+            print("[Step 4]: 调整时间")
+            """tdelta = datetime.datetime.now() - start
+            while tdelta.seconds < self.day_by_sec:
+              time.sleep(0.1) # 100ms
+              tdelta = datetime.datetime.now() - start"""
+
           t += 1
             
-            # arrange production
-        # 
+        # TODO: Attacks
         # if getAttacked:
         #   process attack
         # else
-        #   if time_length_sofar < self.period_by_sec:
+        #   if time_length_sofar < self.day_by_sec:
         #       continue check attack
         #
         #
@@ -176,13 +190,13 @@ class Simulation:
     def save_log(self, csvfile):
       with open(csvfile, 'w', newline='') as h:
         w = csv.writer(h)
-        w.writerow(["厂名","Id","状态","仓库","品名","订购总数","当前库存","已完成数量","生产/消耗速度","预计完工时间"])
+        w.writerow(["厂名","Id","状态","仓库","品名","订购总数","当前库存","已完成数量","生产/消耗速度","计划多久","已花多久","还需多久","能耗"])
         
         skip_list = [constant.FName.power_station,
                      constant.FName.harbor]
         for fname in constant.dict_fname.values():
           if fname not in skip_list:
-            _save_log_f(w, self.dict_f[fname])
+            _save_log_f(w, self.dict_f[fname], self.db)
      
       h.close()
       
@@ -214,7 +228,7 @@ class Simulation:
       return order
 
 # helper function for save_log
-def _save_log_f(writer, lst_f):
+def _save_log_f(writer, lst_f, db):
   for i, f in enumerate(lst_f):
     # 成品库
     for item in f.pwarehouse.stocks:
@@ -224,7 +238,19 @@ def _save_log_f(writer, lst_f):
                        item.qty, # 当前库存
                        f.get_qty_sum(item.name), # 已完成数量
                        item.daily_rate, # 生产速度
-                       f.get_expected_tlen(item.name)]) # 还要多久完工
+                       f.get_ideal_tlen(item.name), #计划多久
+                       f.get_actual_tlen(item.name), #已经多久
+                       f.get_expected_tlen(item.name), # 还要多久完工
+                       f.get_daily_pc()]) #能耗
+      db.add_daily_log(f.name,i+1,f.status,constant.WType.products,
+                       item.name, item.daily_rate,
+                       f.get_ordered_qty(item.name),
+                       item.qty,
+                       f.get_qty_sum(item.name),
+                       f.get_expected_tlen(item.name),
+                       f.get_ideal_tlen(item.name),
+                       f.get_actual_tlen(item.name),
+                       f.get_daily_pc())
       item.reset_dr()
     # 原料库
     for item in f.mwarehouse.stocks:

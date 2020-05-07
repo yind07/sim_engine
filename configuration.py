@@ -20,7 +20,7 @@ class Config:
         self.__cfg_factory(xls)
         self.__cfg_stocks(xls)
         self.deviation = 0.05  # 5%浮动，消耗/生产速度偏差(+/-)
-        self.max_orders = 1   # 订单数上限
+        self.max_orders = 2   # 订单数上限
         
         # TODO
         #   电厂

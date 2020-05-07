@@ -123,7 +123,7 @@ class FStatus(Enum):
     stop      = 3     # 停产（不可恢复攻击、电量不够）
     recharge  = 4     # 触发物流，原料补给中，防止连续两次物流 - 已用
     
-# 订单状态    
+# 订单状态
 class OStatus(Enum):
     def __str__(self):
       for k,v in dict_ostatus.items():
