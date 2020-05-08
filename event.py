@@ -8,12 +8,13 @@ Created on Sat May  2 17:10:18 2020
 from constant import EventType
 
 class Event:
-  def __init__(self, t, etype, dest, src, idx, goods):
+  def __init__(self, t, etype, dest, did, src, sid, goods):
     self.time = t # 触发时间
     self.type = etype # EventType
     self.dest = dest # 接收方厂名
+    self.did = did # 接收方 id
     self.src = src # 发送方厂名
-    self.id = idx # order: 发送方 id; deliver: 接收方 id
+    self.sid = sid # 发送方 id
     self.goods = goods # 相关货物 list
   
   def __str__(self):

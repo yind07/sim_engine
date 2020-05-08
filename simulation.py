@@ -104,7 +104,7 @@ class Simulation:
               #current_order.display()
               print(">> 安排生产链、物流") # 安排下游工厂生产、物流
               # choose supplier
-              supplier = self.select_supplier(current_order.supplier_name)
+              supplier = self.select_supplier(current_order.supplier_name,0)
               supplier.set_order(current_order)
               #self.plan(supplier)
             else:
@@ -139,24 +139,25 @@ class Simulation:
         # processing
         if e.type == constant.EventType.order:
           # a. 获取单次物流的原料补充量
-          goods = self.get_m_supplies(e.dest)
+          goods = self.get_m_supplies(e.dest, e.did)
           # b. 添加相应deliver event
           self.events.put(Event(e.time+1, constant.EventType.deliver,
-                                e.src, e.dest, e.id, goods))
+                                e.src, e.sid, e.dest, e.did, goods))
         # 补充原料库
         elif e.type == constant.EventType.deliver:
-          self.inc_stocks(e.dest, e.id, e.goods)
+          self.inc_stocks(e.dest, e.did, e.goods)
         else:
           print("!! New event: %s" % e)
 
     # 获取单次物流的原料补充量
-    def get_m_supplies(self, fname):
+    def get_m_supplies(self, fname, fid):
       # specific handling for 基础工厂原料
       if fname == constant.FName.harbor:
+        print("*** 港口进货")
         goods = {} # 港口进货
       else:
         # 减少50%成品库存
-        supplier = self.select_supplier(fname)
+        supplier = self.select_supplier(fname, fid)
         goods = supplier.pwarehouse.halve_stocks()
       return goods
     
@@ -173,10 +174,14 @@ class Simulation:
       if f.status in [constant.FStatus.normal]:
         suppliers = f.check()
         for name in suppliers:
-          # TODO: send to each downstrean suppliers
-          #for id in range(self.config.f_num[name]):
-          self.events.put(Event(t+1, constant.EventType.order,
-                                name, f.name, f.id, {}))
+          if name not in [constant.FName.harbor]:
+            # send to each downstrean suppliers
+            for did in range(self.config.f_num[name]):
+              self.events.put(Event(t+1, constant.EventType.order,
+                                    name, did, f.name, f.id, {}))
+          else: # specific for 港口进货
+            self.events.put(Event(t+1, constant.EventType.order,
+                                  name, 0, f.name, f.id, {}))
         if len(suppliers) > 0:
           f.status = constant.FStatus.recharge
 
@@ -199,7 +204,7 @@ class Simulation:
     def plan(self, f):
       m_orders = f.plan()
       for order in m_orders:
-        m_supplier = self.select_supplier(order.supplier_name)
+        m_supplier = self.select_supplier(order.supplier_name,0) # TODO
         m_supplier.set_order(order)
         self.plan(m_supplier)
                 
@@ -217,9 +222,8 @@ class Simulation:
      
       h.close()
       
-    def select_supplier(self, fname):
-      # TODO
-      return self.dict_f[fname][0]
+    def select_supplier(self, fname, fid):
+      return self.dict_f[fname][fid]
       
     # return a new order:
     # random numbers (初始库存基数 * [lbm, ubm])
