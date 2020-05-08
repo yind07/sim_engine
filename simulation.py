@@ -87,16 +87,15 @@ class Simulation:
             self.orders.put(self.get_new_order(10,15))
             
           print("[Step 3]: 检查订单状态，安排、预测下周期生产/物流")
-          if t > 0 and not current_order.finished():
-              print("继续当前订单：原料进货下限检查，物流安排；成品停产上限检查，停产(TODO)")
-              skip_list = [constant.FName.power_station,
-                           constant.FName.harbor]
-              for fname in constant.dict_fname.values():
-                if fname not in skip_list:
-                  for f in self.dict_f[fname]:
-                    self.arrange(f, t)
-                  
-          else: # t == 0 or current order is finished  
+          print("a. 检查、物流安排；b. 成品库停产上限检查")
+          skip_list = [constant.FName.power_station,
+                       constant.FName.harbor]
+          for fname in constant.dict_fname.values():
+            if fname not in skip_list:
+              for f in self.dict_f[fname]:
+                self.arrange(f, t)
+
+          if t == 0 or current_order.finished():
             if not self.orders.empty():
               if t > 0:
                 print("$$$ 完成订单 %d, ready for next Order!" % current_order.oid)
@@ -113,7 +112,7 @@ class Simulation:
               break
           
           if t > 0:
-            print("[Step 4]: 调整时间")
+            print("[Step 4]: 调整时间(TODO - enable delay!)")
             """tdelta = datetime.datetime.now() - start
             while tdelta.seconds < self.day_by_sec:
               time.sleep(0.1) # 100ms
@@ -167,16 +166,34 @@ class Simulation:
                               self.config.f_stocks[fname][constant.WType.materials])
       f.status = constant.FStatus.normal
 
-    # 检查、安排物流(次日)    
+    # 检查、安排物流(次日)
+    # 成品停产上限检查
     def arrange(self, f, t):
       # Avoid double recharge!!
-      if f.status == constant.FStatus.normal:
+      if f.status in [constant.FStatus.normal]:
         suppliers = f.check()
         for name in suppliers:
+          # TODO: send to each downstrean suppliers
+          #for id in range(self.config.f_num[name]):
           self.events.put(Event(t+1, constant.EventType.order,
                                 name, f.name, 0, {}))
         if len(suppliers) > 0:
           f.status = constant.FStatus.recharge
+
+      # 成品停产上限检查
+      # 如果成品库已达停产上限，但出于触发物流状态，则进入停产状态，后续物流照常
+      if f.name not in [constant.FName.aircraft_assembly,
+                        constant.FName.automobile_assembly]:
+        if f.status in [constant.FStatus.normal,
+                        constant.FStatus.recharge,
+                        constant.FStatus.pause]:
+          if f.is_pwarehouse_full():
+            if f.status != constant.FStatus.pause:
+              print("$$$ %s：%s -> 停产" % (f.name, f.status))
+              f.status = constant.FStatus.pause
+          elif f.status == constant.FStatus.pause:
+            print("@@@ %s：停产 -> 正常" % f.name)
+            f.status = constant.FStatus.normal
       
     # plan the production - recursive!
     def plan(self, f):

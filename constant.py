@@ -110,18 +110,22 @@ class FStatus(Enum):
     def __str__(self):
         if self.name == "normal":
             return "正常"
-        elif self.name == "pause":
-            return "暂停"
-        elif self.name == "stop":
-            return "停产"
         elif self.name == "recharge":
             return "触发物流"
+        elif self.name == "pause":
+            return "停产"
+        elif self.name == "maintain":
+            return "维修"
+        elif self.name == "under_attack":
+            return "被攻击"
         return "FStatus.NEW"
     
-    normal    = 1     # 正常（可运转、在运转） - 已用
-    pause     = 2     # 暂停（原料不够、成品达上限、维修、可恢复攻击）
-    stop      = 3     # 停产（不可恢复攻击、电量不够）
-    recharge  = 4     # 触发物流，原料补给中，防止连续两次物流 - 已用
+    normal        = 1     # 正常（可运转、在运转） - 已用
+    recharge      = 2     # 触发物流，原料补给中，防止连续两次物流 - 已用
+    pause         = 3     # 停产（成品库存达上限、维修、可恢复攻击 - 已用）
+    maintain      = 4
+    under_attack  = 5
+    
     
 # 订单状态
 class OStatus(Enum):

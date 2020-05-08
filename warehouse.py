@@ -40,12 +40,23 @@ class PWarehouse(Warehouse):
       for i in self.stocks:
         stocks[i.name] = i.halve()
       return stocks
+
     # used to close the last order
     def dec_stocks(self, goods):
       for i in self.stocks:
         for g in goods:
           if i.name == g.name:
             i.dec(g.qty)
+
+    # return true if 停产上限 is met
+    # 实际算法：当所有的成品均超出相应停产上限时才确认为仓库已满      
+    # 这和如果成品严格按比例增加/减少情况下只判断其中一种是否已达上限是一致的
+    def is_full(self, cfg_pw):
+      for i in self.stocks:
+        limit = cfg_pw[i.name]["pause_limit"]
+        if i.qty < limit:
+          return False
+      return True
 
 class MWarehouse(Warehouse):
     def __init__(self, stocks, rm, rb):

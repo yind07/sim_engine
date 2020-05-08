@@ -191,6 +191,9 @@ class Factory:
           #print("!! %s: %s 库存<=进货下限，库存 %d, 进货下限 %d" % (self.name, i.name, i.qty, limit))
           supplier_names.add(get_supplier_name(i.name))
       return supplier_names
+    
+    def is_pwarehouse_full(self):
+      return self.pwarehouse.is_full(self.cfg.f_stocks[self.name][WType.products])
       
     # 计算需要订购的原料，返回给下游工厂的订单list
     def plan(self):
