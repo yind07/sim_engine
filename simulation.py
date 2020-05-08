@@ -36,7 +36,7 @@ class Simulation:
           if fname not in skip_list:
             factories = []
             for i in range(cfg.f_num[fname]):
-              factories.append(get_newf(cfg, fname))
+              factories.append(get_newf(cfg, fname, i))
             self.dict_f[fname] = factories
         
     def run(self):
@@ -176,7 +176,7 @@ class Simulation:
           # TODO: send to each downstrean suppliers
           #for id in range(self.config.f_num[name]):
           self.events.put(Event(t+1, constant.EventType.order,
-                                name, f.name, 0, {}))
+                                name, f.name, f.id, {}))
         if len(suppliers) > 0:
           f.status = constant.FStatus.recharge
 

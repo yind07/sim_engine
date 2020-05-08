@@ -14,9 +14,9 @@ from item import ItemRecord
 from constant import FName, WType, FStatus, OStatus, IName
 
 class Factory:
-    def __init__(self, fname, pwh, mwh, status, cfg):
+    def __init__(self, fname, fid, pwh, mwh, status, cfg):
         self.name = fname
-        #self.type = ftype
+        self.id = fid
         self.pwarehouse = pwh   # 成品库
         self.mwarehouse = mwh   # 原料库
         self.status = status
@@ -308,8 +308,8 @@ def get_lst_materials(dict_m):
     return []
 
 # return a new factory by fname and initial configuration(static)
-def get_newf(cfg, fname):
-    return Factory(fname,\
+def get_newf(cfg, fname, idx):
+    return Factory(fname, idx,\
                    PWarehouse(init_stocks(cfg, fname, WType.products),
                               cfg.ratemul[fname][WType.products],
                               cfg.ratebase[fname][WType.products]),\
