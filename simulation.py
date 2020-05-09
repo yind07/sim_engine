@@ -20,12 +20,12 @@ import datetime
 import time
 
 class Simulation:
-    _tag = 0 # 0: order aircraft, 1: order automobile
     def __init__(self, cfg, db, sec=1):
         self.config = cfg
         self.db = db
         self.day_by_sec = sec
-        self.orders = queue.Queue()
+        self.orders_ac = queue.Queue() # 飞机订单
+        self.orders_am = queue.Queue() # 汽车订单
         self.events = queue.PriorityQueue()
         
         # init static info
@@ -56,12 +56,15 @@ class Simulation:
             安排、预测下周期生产/物流
         4.  根据设定周期长短，调整时间(NOT for Day 0)
         """
-        while True: #cnt > 0:
+        t1 = datetime.datetime.now()
+        total_orders_ac = 0 # 飞机订单总数
+        total_orders_am = 0 # 汽车订单总数
+        while True:
           print("\n ===== Day %d =====" % t)
 
           if t > 0:
             start = datetime.datetime.now()
-            print("[Step 1]: 物流处理、生产并记录")
+            #print("[Step 1]: 物流处理、生产并记录")
             # 物流处理
             self.handle_supplies(t)
             # 生产
@@ -81,12 +84,18 @@ class Simulation:
             #self.db.clear_table("daily_logs")
             self.save_log(logfname)
           
-          num_orders = self.orders.qsize()
-          print("[Step 2]: 按情况产生新订单, 当前排队订单数 = %d" % num_orders)
-          if num_orders < self.config.max_orders and t <= 20:
-            self.orders.put(self.get_new_order(10,15))
-            
-          print("[Step 3]: 检查订单状态，安排、预测下周期生产/物流")
+          num_orders_ac = self.orders_ac.qsize()
+          num_orders_am = self.orders_am.qsize()
+          #print("[Step 2]: 按需产生新订单, 当前排队订单数 - 飞机(%d)，汽车(%d)" % (num_orders_ac, num_orders_am))
+          if t <= self.config.ul_order_days:
+            if num_orders_ac < self.config.max_orders:
+              self.orders_ac.put(self.get_new_order(6,10,constant.FName.aircraft_assembly))
+              total_orders_ac += 1
+            if num_orders_am < self.config.max_orders:
+              self.orders_am.put(self.get_new_order(8,12,constant.FName.automobile_assembly))
+              total_orders_am += 1
+
+          #print("[Step 3]: 检查订单状态，安排、预测下周期生产/物流")
           #print("a. 检查、物流安排；b. 成品库停产上限检查")
           skip_list = [constant.FName.power_station,
                        constant.FName.harbor]
@@ -94,29 +103,53 @@ class Simulation:
             if fname not in skip_list:
               for f in self.dict_f[fname]:
                 self.arrange(f, t)
+                
+          if t == 0: # the very beginning
+            current_order_ac = self.orders_ac.get()
+            print(">> 新订单（飞机） %d - 开始处理" % current_order_ac.oid)
+            #current_order_ac.display()
+            current_order_am = self.orders_am.get()
+            print(">> 新订单（汽车） %d - 开始处理" % current_order_am.oid)
+            #current_order_am.display()
 
-          if t == 0 or current_order.finished():
-            if not self.orders.empty():
-              if t > 0:
-                print("$$$ 完成订单 %d, ready for next Order!" % current_order.oid)
-                supplier.reset_order()
-              current_order = self.orders.get()
-              #current_order.display()
-              print(">> 安排生产链、物流") # 安排下游工厂生产、物流
-              # choose supplier
-              supplier = self.select_supplier(current_order.supplier_name,0)
-              supplier.set_order(current_order)
-              #self.plan(supplier)
-            else:
-              print("$$$ 没有后续订单，记录一下，退出了！")
+            # choose supplier
+            supplier_ac = self.select_supplier(current_order_ac.supplier_name,0)
+            supplier_ac.set_order(current_order_ac)
+            supplier_am = self.select_supplier(current_order_am.supplier_name,0)
+            supplier_am.set_order(current_order_am)
+          else: # t > 0
+            if current_order_ac.finished():
+              supplier_ac.reset_order()
+              if not self.orders_ac.empty():
+                print("<< 完成订单（飞机） %d, ready for next Order!" % current_order_ac.oid)
+                current_order_ac = self.orders_ac.get()
+                print(">> 新订单（飞机） %d - 开始处理" % current_order_ac.oid)
+                supplier_ac = self.select_supplier(current_order_ac.supplier_name,0)
+                supplier_ac.set_order(current_order_ac)
+              else:
+                print("<<< 完成订单（飞机） %d, 已无后续飞机订单！" % current_order_ac.oid)
+            if current_order_am.finished():
+              supplier_am.reset_order()
+              if not self.orders_am.empty():
+                print("<< 完成订单（汽车） %d, ready for next Order!" % current_order_am.oid)
+                current_order_am = self.orders_am.get()
+                print(">> 新订单（汽车） %d - 开始处理" % current_order_am.oid)
+                supplier_am = self.select_supplier(current_order_am.supplier_name,0)
+                supplier_am.set_order(current_order_am)
+              else:
+                print("<<< 完成订单（汽车） %d, 已无后续汽车订单！" % current_order_am.oid)
+                
+            if current_order_ac.finished() and self.orders_ac.empty() and current_order_am.finished() and self.orders_am.empty():
+              print("$$$ 无后续订单，退出了！")
               break
-          
+
           if t > 0:
-            print("[Step 4]: 调整时间(TODO - enable delay!)")
-            """tdelta = datetime.datetime.now() - start
-            while tdelta.seconds < self.day_by_sec:
-              time.sleep(0.1) # 100ms
-              tdelta = datetime.datetime.now() - start"""
+            #print("[Step 4]: 调整时间")
+            if self.config.enable_delay:
+              tdelta = datetime.datetime.now() - start
+              while tdelta.seconds < self.day_by_sec:
+                time.sleep(0.1) # 100ms
+                tdelta = datetime.datetime.now() - start
 
           t += 1
             
@@ -128,6 +161,9 @@ class Simulation:
         #       continue check attack
         #
         #
+        tdlt = datetime.datetime.now() - t1
+        print("\n>>> 本次演示 %d 天，实际花费 %.2f 分钟, 共产生/完成飞机订单 %d, 汽车订单 %d" % (t, tdlt.seconds/60,total_orders_ac,total_orders_am))
+
     # 物流处理 - 每天开始生产前
     def handle_supplies(self, t):
       #print(">>> handle_supplies: events size %d" % self.events.qsize())
@@ -226,14 +262,7 @@ class Simulation:
       
     # return a new order:
     # random numbers (初始库存基数 * [lbm, ubm])
-    def get_new_order(self, lbm, ubm):
-      if Simulation._tag == 0:
-        fname = constant.FName.aircraft_assembly
-        Simulation._tag = 1
-      else:
-        fname = constant.FName.automobile_assembly
-        Simulation._tag = 0
-      
+    def get_new_order(self, lbm, ubm, fname):
       # only one product!
       for i,v in self.config.f_stocks[fname][constant.WType.products].items():
         iname = i

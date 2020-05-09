@@ -135,7 +135,7 @@ class OStatus(Enum):
           return k
       return ">>> New OStatus: %s" % self.name
     
-    ongoing  = 1    # 处理中
+    ongoing  = 1    # 待处理
     finished = 2    # 已完成
 
 # 事件类型（目前为物流）  
@@ -182,7 +182,7 @@ dict_wtype = {
 
 # name_str-WType mapping
 dict_ostatus = {
-  "处理中": OStatus.ongoing,
+  "待处理": OStatus.ongoing,
   "已完成": OStatus.finished,
 }
 

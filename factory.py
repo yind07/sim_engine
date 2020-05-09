@@ -58,12 +58,13 @@ class Factory:
           self.ideal_tlen[r.name] = math.ceil((total-r.qty)/rate)
         
     def reset_order(self):
-      self.pwarehouse.dec_stocks(self.order.goods)
-      self.order = None
-      # for ordered goods doesn't cover all products (like 热轧/冷轧厂)
-      # for r in order.goods:
-      for r in self.pwarehouse.stocks:
-        self.reset_order_props(r.name)
+      if self.order != None:
+        self.pwarehouse.dec_stocks(self.order.goods)
+        self.order = None
+        # for ordered goods doesn't cover all products (like 热轧/冷轧厂)
+        # for r in order.goods:
+        for r in self.pwarehouse.stocks:
+          self.reset_order_props(r.name)
 
     # 订购总数
     def get_ordered_qty(self, iname):
