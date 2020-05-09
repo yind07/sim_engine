@@ -68,7 +68,7 @@ class MWarehouse(Warehouse):
     def inc_stocks(self, goods, cfg):
         for i in self.stocks:
           if i.is_raw():
-            print(">>> 港口进货 %s，增加3倍进货下限" % i.name)
+            #print(">>> 港口进货 %s，增加3倍进货下限" % i.name)
             i.inc(3*cfg[i.name]["restock_limit"])
           elif i.name in goods: # ensure item key exists!
             i.inc(goods[i.name])

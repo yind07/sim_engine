@@ -87,7 +87,7 @@ class Simulation:
             self.orders.put(self.get_new_order(10,15))
             
           print("[Step 3]: 检查订单状态，安排、预测下周期生产/物流")
-          print("a. 检查、物流安排；b. 成品库停产上限检查")
+          #print("a. 检查、物流安排；b. 成品库停产上限检查")
           skip_list = [constant.FName.power_station,
                        constant.FName.harbor]
           for fname in constant.dict_fname.values():
@@ -130,7 +130,7 @@ class Simulation:
         #
     # 物流处理 - 每天开始生产前
     def handle_supplies(self, t):
-      print(">>> handle_supplies: events size %d" % self.events.qsize())
+      #print(">>> handle_supplies: events size %d" % self.events.qsize())
       while not self.events.empty():
         e = self.events.get()
         if e.time > t:
@@ -153,7 +153,6 @@ class Simulation:
     def get_m_supplies(self, fname, fid):
       # specific handling for 基础工厂原料
       if fname == constant.FName.harbor:
-        print("*** 港口进货")
         goods = {} # 港口进货
       else:
         # 减少50%成品库存
@@ -194,10 +193,10 @@ class Simulation:
                         constant.FStatus.pause]:
           if f.is_pwarehouse_full():
             if f.status != constant.FStatus.pause:
-              print("$$$ %s：%s -> 停产" % (f.name, f.status))
+              #print("$$$ %s：%s -> 停产" % (f.name, f.status))
               f.status = constant.FStatus.pause
           elif f.status == constant.FStatus.pause:
-            print("@@@ %s：停产 -> 正常" % f.name)
+            #print("@@@ %s：停产 -> 正常" % f.name)
             f.status = constant.FStatus.normal
       
     # plan the production - recursive!
