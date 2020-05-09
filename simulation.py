@@ -65,8 +65,8 @@ class Simulation:
           if t > 0:
             start = datetime.datetime.now()
             #print("[Step 1]: 物流处理、生产并记录")
-            # 物流处理
-            self.handle_supplies(t)
+            # 事件处理 - 物流、维修
+            self.handle_events(t)
             # 生产
             skip_list = [constant.FName.power_station,
                          constant.FName.harbor]
@@ -117,6 +117,19 @@ class Simulation:
             supplier_ac.set_order(current_order_ac)
             supplier_am = self.select_supplier(current_order_am.supplier_name,0)
             supplier_am.set_order(current_order_am)
+            
+            # 产生首次维修事件组
+            skip_list = [constant.FName.harbor,
+                         constant.FName.power_station]
+            for fname in constant.dict_fname.values():
+              if fname not in skip_list:
+                for i in range(self.config.f_num[fname]):
+                  # 开始维修时间（随机）
+                  mt = random.randint(self.config.f_mplb[fname],
+                                      self.config.f_mpub[fname])
+                  self.events.put(Event(t+mt, constant.EventType.maintain_begin,
+                                fname, i, "NA", 0, {}))
+
           else: # t > 0
             if current_order_ac.finished():
               supplier_ac.reset_order()
@@ -165,8 +178,8 @@ class Simulation:
         print("\n>>> 本次演示 %d 天，实际花费 %.2f 分钟, 共产生/完成飞机订单 %d, 汽车订单 %d" % (t, tdlt.seconds/60,total_orders_ac,total_orders_am))
 
     # 物流处理 - 每天开始生产前
-    def handle_supplies(self, t):
-      #print(">>> handle_supplies: events size %d" % self.events.qsize())
+    def handle_events(self, t):
+      #print(">>> handle_events: events size %d" % self.events.qsize())
       while not self.events.empty():
         e = self.events.get()
         if e.time > t:
@@ -182,6 +195,22 @@ class Simulation:
         # 补充原料库
         elif e.type == constant.EventType.deliver:
           self.inc_stocks(e.dest, e.did, e.goods)
+        elif e.type == constant.EventType.maintain_begin:
+          self.dict_f[e.dest][e.did].status = constant.FStatus.maintain
+          mlen = self.config.f_mlen[e.dest]
+          print("%s(%d)开始维修，需要 %d 天" % (e.dest,e.did+1,mlen))
+          # 根据维修时长，产生维修结束event
+          self.events.put(Event(t+mlen, constant.EventType.maintain_end,
+                                e.dest, e.did, e.src, e.sid, e.goods))
+        elif e.type == constant.EventType.maintain_end:
+          # TODO: if need restore last status before maintain?
+          self.dict_f[e.dest][e.did].status = constant.FStatus.normal
+          print("%s(%d)结束维修" % (e.dest,e.did+1))
+          # 产生下次维修开始event
+          mt = random.randint(self.config.f_mplb[e.dest],
+                              self.config.f_mpub[e.dest])
+          self.events.put(Event(t+mt, constant.EventType.maintain_begin,
+                                e.dest, e.did, e.src, e.sid, e.goods))
         else:
           print("!! New event: %s" % e)
 

@@ -142,6 +142,8 @@ class OStatus(Enum):
 class EventType(Enum):
     order = 1
     deliver = 2
+    maintain_begin = 3
+    maintain_end = 4
     
     def __str__(self):
       for k,v in dict_etype.items():
@@ -220,4 +222,6 @@ dict_iname = {
 dict_etype = {
   "订购": EventType.order,
   "收货": EventType.deliver,
+  "维修开始": EventType.maintain_begin,
+  "维修结束": EventType.maintain_end,
 }

@@ -71,10 +71,14 @@ class Config:
         cfg_col_num = "初始化数量（<=10）"
         cfg_col_pc = "能耗（单位：千度/天）"
         cfg_col_mlen = "维修恢复时长（单位：时间周期）"
+        cfg_col_mplb = "维修触发周期下限（单位：时间周期）"
+        cfg_col_mpub = "维修触发周期上限（单位：时间周期）"
 
         self.f_num = {}   # 各厂数量
         self.f_pc = {}    # 各厂能耗（单位：1000 Kwh/周期）
         self.f_mlen = {}  # 各厂维修恢复时长（单位：时间周期）
+        self.f_mplb = {}  # 各厂维修触发周期下限（单位：时间周期）
+        self.f_mpub = {}  # 各厂维修触发周期上限（单位：时间周期）
 
         df = pandas.read_excel(h_xls, "factory")
         for i in range(len(df)):
@@ -83,6 +87,8 @@ class Config:
           self.f_num[key] = row[cfg_col_num]
           self.f_pc[key] = row[cfg_col_pc]
           self.f_mlen[key] = row[cfg_col_mlen]
+          self.f_mplb[key] = row[cfg_col_mplb]
+          self.f_mpub[key] = row[cfg_col_mpub]
           
     def __cfg_stocks(self, h_xls):
         cfg_col_fname = "名称"
