@@ -19,43 +19,16 @@ class Config:
         #print("%s %s %s" % (self.ip, self.username, self.password))
         self.__cfg_factory(xls)
         self.__cfg_stocks(xls)
-        self.deviation = 0.05  # 5%浮动，消耗/生产速度偏差(+/-)
+        self.__cfg_power_station(xls)
         # for DEMO
         self.max_orders = 1       # 订单数上限
         self.ul_order_days = 20   # 多长时间内允许产生订单？
         self.enable_delay = False
         
-        # TODO
-        #   电厂
-        #   居民区
-        
-        """self.crudeoil          
-        self.hydrogen          
-        self.alumina           
-        self.benzene           
-        self.toluene           
-        self.ironstone         
-        self.steel             
-        self.bauxite           
-        self.aluminium         
-        self.pvc               
-        self.pvc_hb            
-        self.shcc              
-        self.spcc              
-        self.plastic_gear      
-        self.plastic_lever     
-        self.plastic_enclosure 
-        self.iron_gear         
-        self.iron_lever        
-        self.iron_enclosure    
-        self.alum_gear         
-        self.alum_lever        
-        self.alum_enclosure"""    
-        
-        
     def init_db(self):
         print("<TODO> Init DB tables")
-    # TODO: init by warehouse goods ratebase ratio!!!   
+
+    # init by warehouse goods ratebase ratio!!!
     def get_init_qty(self, fname, wtype, iname):
         return rand_qty(self.f_stocks[fname][wtype][iname]["base"],
                       self.f_stocks[fname][wtype][iname]["ul"])
@@ -66,6 +39,12 @@ class Config:
         self.username = db.loc[0, "username"]
         self.password = db.loc[0, "password"]
         
+    def __cfg_power_station(self, h_xls):
+        ps = pandas.read_excel(h_xls, "power_station")
+        self.ps_devia_lb = ps.loc[0, "总发电量下限"]
+        self.ps_devia_ub = ps.loc[0, "发电预测上限"]
+        #print("power station: lb=%.2f, ub=%.2f" % (self.ps_devia_lb, self.ps_devia_ub))
+
     def __cfg_factory(self, h_xls):
         cfg_col_name = "名称"
         cfg_col_num = "初始化数量（<=10）"
@@ -73,12 +52,14 @@ class Config:
         cfg_col_mlen = "维修恢复时长（单位：时间周期）"
         cfg_col_mplb = "维修触发周期下限（单位：时间周期）"
         cfg_col_mpub = "维修触发周期上限（单位：时间周期）"
+        cfg_col_deviation = "波动范围"
 
         self.f_num = {}   # 各厂数量
         self.f_pc = {}    # 各厂能耗（单位：1000 Kwh/周期）
         self.f_mlen = {}  # 各厂维修恢复时长（单位：时间周期）
         self.f_mplb = {}  # 各厂维修触发周期下限（单位：时间周期）
         self.f_mpub = {}  # 各厂维修触发周期上限（单位：时间周期）
+        self.f_deviation = {}  # 工厂：消耗/生产速度波动；居民区：耗电波动
 
         df = pandas.read_excel(h_xls, "factory")
         for i in range(len(df)):
@@ -89,7 +70,9 @@ class Config:
           self.f_mlen[key] = row[cfg_col_mlen]
           self.f_mplb[key] = row[cfg_col_mplb]
           self.f_mpub[key] = row[cfg_col_mpub]
-          
+          self.f_deviation[key] = row[cfg_col_deviation]
+          #print("deviation: %s - %.2f" % (key, self.f_deviation[key]))
+
     def __cfg_stocks(self, h_xls):
         cfg_col_fname = "名称"
         cfg_col_wtype = "仓库"
@@ -164,10 +147,11 @@ class Config:
       #print(self._ratebase)
       #print(self.ratemul)
 
-    # return randome deviation within [-self.deviation, +self.deviation]
-    def rand_deviation(self):
+    # return randome deviation within [-deviation, +deviation]
+    def rand_deviation(self, fname):
       multiple = 100 # precision == 2, ~0.01
-      return random.randrange(multiple*self.deviation*2+1)/multiple - self.deviation
+      deviation = self.f_deviation[fname]
+      return random.randrange(multiple*deviation*2+1)/multiple - deviation
 
 def get_min_qty(dic):
   min_qty = float("inf")  # 正无穷

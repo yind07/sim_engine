@@ -50,7 +50,7 @@ class Simulation:
         
         """
         Periodic manufacturing process:
-        1.  物流处理、生产并记录（NOT for Day 0）
+        1.  物流处理、能耗规划、生产并记录（NOT for Day 0）
         2.  如果总订单数未达上限，产生新订单
         3.  检查订单（老订单未结束？/有新订单？），
             安排、预测下周期生产/物流
@@ -64,12 +64,18 @@ class Simulation:
 
           if t > 0:
             start = datetime.datetime.now()
-            #print("[Step 1]: 物流处理、生产并记录")
+            #print("[Step 1]: 物流处理、能耗规划、生产并记录")
+            
             # 事件处理 - 物流、维修
             self.handle_events(t)
+            
+            # 根据当日发电量规划参与生产的工厂，并记录实际用电量
+            self.plan_pc()
+            
             # 生产
             skip_list = [constant.FName.power_station,
-                         constant.FName.harbor]
+                         constant.FName.harbor,
+                         constant.FName.community]
             for fname in constant.dict_fname.values():
               if fname not in skip_list:
                 for f in self.dict_f[fname]:
@@ -95,10 +101,13 @@ class Simulation:
               self.orders_am.put(self.get_new_order(8,12,constant.FName.automobile_assembly))
               total_orders_am += 1
 
-          #print("[Step 3]: 检查订单状态，安排、预测下周期生产/物流")
+          #print("[Step 3]: 能耗检查、预估；检查订单状态，安排、预测下周期生产/物流")
+          # 能耗检查、预估
+          self.check_pc(t)
           #print("a. 检查、物流安排；b. 成品库停产上限检查")
           skip_list = [constant.FName.power_station,
-                       constant.FName.harbor]
+                       constant.FName.harbor,
+                       constant.FName.community]
           for fname in constant.dict_fname.values():
             if fname not in skip_list:
               for f in self.dict_f[fname]:
@@ -120,7 +129,8 @@ class Simulation:
             
             # 产生首次维修事件组
             skip_list = [constant.FName.harbor,
-                         constant.FName.power_station]
+                         constant.FName.power_station,
+                         constant.FName.community]
             for fname in constant.dict_fname.values():
               if fname not in skip_list:
                 for i in range(self.config.f_num[fname]):
@@ -192,6 +202,13 @@ class Simulation:
           # b. 添加相应deliver event
           self.events.put(Event(e.time+1, constant.EventType.deliver,
                                 e.src, e.sid, e.dest, e.did, goods))
+          # 发货后检查是否可以继续生产？
+          if e.dest not in [constant.FName.harbor]:
+            f = self.select_supplier(e.dest, e.did)
+            if not f.is_pwarehouse_full():
+              if f.status == constant.FStatus.pause:
+                print("### %s：停产 -- 物流发货 --> 正常" % f.name)
+                f.status = constant.FStatus.normal
         # 补充原料库
         elif e.type == constant.EventType.deliver:
           self.inc_stocks(e.dest, e.did, e.goods)
@@ -279,7 +296,8 @@ class Simulation:
         w.writerow(["厂名","Id","状态","仓库","品名","订购总数","当前库存","已完成数量","生产/消耗速度","计划多久","已花多久","还需多久","能耗"])
         
         skip_list = [constant.FName.power_station,
-                     constant.FName.harbor]
+                     constant.FName.harbor,
+                     constant.FName.community]
         for fname in constant.dict_fname.values():
           if fname not in skip_list:
             _save_log_f(w, self.dict_f[fname], self.db)
@@ -304,7 +322,101 @@ class Simulation:
       order.add(r)      
       order.display()
       return order
+    
+    def get_initial_total_power(self):
+      # 总满载电量
+      full_power = 0
+      skip_list = [constant.FName.power_station,
+                   constant.FName.harbor]
+      for fname in constant.dict_fname.values():
+        if fname not in skip_list:
+          full_power += self.config.f_pc[fname]*self.config.f_num[fname]
+      #print("总满载电量：%.2f 千度/天" % self.initial_full_power)
+      return full_power*(1-self.config.ps_devia_lb)
+    
+    # 根据当日发电量规划参与生产的工厂，并记录实际用电量
+    def plan_pc(self):
+      print("预测发电总量：%.2f" % self.power_estimation)
+      
+      # 计划用电
+      pc_plan = 0
+      for fname in constant.dict_fname.values():
+        if fname in self.dict_f:
+          for f in self.dict_f[fname]:
+            f.set_pc_plan() # 居民区每日用电
+            if f.can_produce():
+              pc_plan += f.pc_plan
+              f.pc_actual = f.pc_plan # update 实际用电
+              #print("%s(id=%d): 耗电 %.2f" % (f.name, f.id, f.pc_plan))
+            else:
+              f.pc_actual = 0 # update 实际用电
+              #print("%s(id=%d): %s" % (f.name, f.id, f.status))
+            #print("%s\n" % f)
+      print("计划用电：%.2f" % pc_plan)
+      
+      if pc_plan > self.power_estimation:
+        self.blackout_factories(pc_plan - self.power_estimation)
+      else:
+        print("预测发电总量足够!")
+    
+    # 能耗检查、预估次日用电量
+    def check_pc(self, t):
+      if t == 0:
+        self.power_estimation = self.get_initial_total_power()
+        #print("首日发电预测：%.2f" % self.power_estimation)
+      else:
+        pc_actual = 0 # 当日实际能耗
+        for fname in constant.dict_fname.values():
+          if fname in self.dict_f:
+            for f in self.dict_f[fname]:
+              #print("%s(id=%d, %s), pc_actual=%.2f" % (f.name, f.id+1, f.status, f.pc_actual))
+              pc_actual += f.pc_actual
+              if f.status == constant.FStatus.blackout:
+                # !! Important: 停电工厂状态 -> 正常
+                f.status = constant.FStatus.normal
+        print("本日实际能耗：%.2f" % pc_actual)
+        # 次日预测能耗
+        self.power_estimation = pc_actual*(1+self.config.ps_devia_ub)
+        #print("发电预测：%.2f" % self.power_estimation)
+      
+    # select factories to shutdown
+    # To make sure:
+    #   1. 被选工厂原来可以正常生产
+    #   2. 被选工厂总耗电量 >= delta
+    def blackout_factories(self, delta):
+      print("预测发电总量不够，需要关闭若干工厂! delta = %.2f" % delta)
+      saved_power = 0
+      skip_list = [constant.FName.power_station,
+                   constant.FName.harbor,
+                   constant.FName.community]
+      for fname in constant.dict_fname.values():
+        if fname not in skip_list:
+          if self.is_ok4blackout(fname):
+            for f in self.dict_f[fname]:
+              if f.status == constant.FStatus.normal:
+                f.status = constant.FStatus.blackout
+                print("%s(id=%d): %s, saved %.2f" % (f.name, f.id+1, f.status, f.pc_plan))
+                saved_power += f.pc_plan
+                f.pc_actual = 0 # update 实际用电
+                break
+            if saved_power >= delta:
+              print("预测发电量够了！")
+              break
+              
+      if saved_power < delta:
+        print("saved_power = %.2f, 预测发电量还是不够！开始从最下游关闭/停电工厂！- TODO")
 
+    # 对于生产链中多于1家可以正常生产的厂, 返回True
+    def is_ok4blackout(self, fname):
+      if self.config.f_num[fname] == 1:
+        return False
+      else:
+        cnt = 0
+        for f in self.dict_f[fname]:
+          if f.can_produce():
+            cnt += 1
+        return cnt > 1
+      
 # helper function for save_log
 def _save_log_f(writer, lst_f, db):
   for i, f in enumerate(lst_f):

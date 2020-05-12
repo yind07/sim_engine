@@ -60,6 +60,7 @@ class FName(Enum):
     aircraft_assembly   = 11 # 飞机总装厂
     power_station       = 12 # 发电厂
     harbor              = 13 # 港口
+    community           = 14 # 居民区
     
     def __str__(self):
       for k,v in dict_fname.items():
@@ -118,13 +119,16 @@ class FStatus(Enum):
             return "维修"
         elif self.name == "under_attack":
             return "被攻击"
+        elif self.name == "blackout":
+            return "停电"
         return "FStatus.NEW"
     
     normal        = 1     # 正常（可运转、在运转） - 已用
     recharge      = 2     # 触发物流，原料补给中，防止连续两次物流 - 已用
-    pause         = 3     # 停产（成品库存达上限、维修、可恢复攻击 - 已用）
-    maintain      = 4
-    under_attack  = 5
+    pause         = 3     # 停产（成品库存达上限 - 已用）
+    maintain      = 4     # 维修 - 已用
+    blackout      = 5     # 停电 - 已用
+    under_attack  = 6
     
     
 # 订单状态
@@ -151,14 +155,6 @@ class EventType(Enum):
           return k
       return ">>> New EventType: %s" % self.name    
 
-"""    
-class EventType(Enum):
-    attack  = 1     # 攻击
-    maintain = 2    # 维修
-    purchase = 3    # 进货（原料）/物流
-    manufacture = 4 # 生产
-"""
-
 # name_str-FName mapping
 dict_fname = {
   "飞机总装厂": FName.aircraft_assembly,
@@ -174,6 +170,7 @@ dict_fname = {
   "铝质零件厂": FName.alum_parts,         
   "发电厂":     FName.power_station,
   "港口":       FName.harbor,
+  "居民区":     FName.community,
 }
 
 # name_str-WType mapping

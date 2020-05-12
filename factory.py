@@ -20,21 +20,26 @@ class Factory:
         self.pwarehouse = pwh   # 成品库
         self.mwarehouse = mwh   # 原料库
         self.status = status
-        self.power_consumption = cfg.f_pc[fname]
         self.maintenance_len = cfg.f_mlen[fname]
         self.cfg = cfg
         self.order = None
+        # 能耗分为：计划用电和实际用电
+        self.pc_plan = cfg.f_pc[fname]
+        self.pc_actual = self.pc_plan
 
     def __str__(self):
-        s = "%s: %s\n" % (self.name, self.status)
-        s += "  耗电（1000Kwh/周期）： %d\n" % self.power_consumption
+        s = "%s(id=%d): %s\n" % (self.name, self.id+1, self.status)
+        s += "  耗电（1000Kwh/周期）： 计划=%.2f，实际=%.2f\n" % (self.pc_plan, self.pc_actual)
         s += "  维修时长（周期）： %d\n" % self.maintenance_len
-        if self.order == None:
-          s += "  当前订单：无\n"
-        else:
-          s += "  当前订单：%s\n" % self.order
-        s += "  %s\n" % self.pwarehouse
-        s += "  %s" % self.mwarehouse
+        if self.name not in [FName.community,
+                             FName.harbor,
+                             FName.power_station]:
+          if self.order == None:
+            s += "  当前订单：无\n"
+          else:
+            s += "  当前订单：%s\n" % self.order
+          s += "  %s\n" % self.pwarehouse
+          s += "  %s" % self.mwarehouse
         return s
     # return true for 总装厂， return false otherwise 
     def is_assembly(self):
@@ -128,12 +133,21 @@ class Factory:
       if self.order != None:
         for r in self.pwarehouse.stocks:
           self.actual_tlen[r.name] += 1
-          
+
     def get_daily_pc(self):
-      return 0 #TODO
+      return self.pc_actual
+
+    # daily planned power comsumption, mainly for community
+    # 工厂的计划用电在初始化时设定，不变化
+    def set_pc_plan(self):
+      if self.name == FName.community:
+        deviation = self.cfg.rand_deviation(self.name)
+        rate = 1+deviation
+        self.pc_plan = self.cfg.f_pc[self.name] * rate
+        self.pc_actual = self.pc_plan
 
     def can_produce(self):
-      # 反过来判断亦可 - 不处于停产/暂停状态 etc...
+      # TODO: check if materials can keep manufacturing
       return self.status in [FStatus.normal, FStatus.recharge]
 
     # periodic manufacture if possible
@@ -144,7 +158,7 @@ class Factory:
     # 按消耗/生产比例周期生产（原料减少，成品增加）
     def produce(self):
       #print("生产前：\n%s" % self)
-      deviation = self.cfg.rand_deviation()
+      deviation = self.cfg.rand_deviation(self.name)
       rate = 1+deviation
       #print("deviation: %.2f, rate: %.2f" % (deviation,rate))
       
@@ -310,14 +324,18 @@ def get_lst_materials(dict_m):
 
 # return a new factory by fname and initial configuration(static)
 def get_newf(cfg, fname, idx):
-    return Factory(fname, idx,\
-                   PWarehouse(init_stocks(cfg, fname, WType.products),
-                              cfg.ratemul[fname][WType.products],
-                              cfg.ratebase[fname][WType.products]),\
-                   MWarehouse(init_stocks(cfg, fname, WType.materials),
-                              cfg.ratemul[fname][WType.materials],
-                              cfg.ratebase[fname][WType.materials]),\
-                   FStatus.normal, cfg)
+    # specific for community
+    if fname == FName.community:
+      return Factory(fname, idx, None, None, FStatus.normal, cfg)
+    else:
+      return Factory(fname, idx,\
+                     PWarehouse(init_stocks(cfg, fname, WType.products),
+                                cfg.ratemul[fname][WType.products],
+                                cfg.ratebase[fname][WType.products]),\
+                     MWarehouse(init_stocks(cfg, fname, WType.materials),
+                                cfg.ratemul[fname][WType.materials],
+                                cfg.ratebase[fname][WType.materials]),\
+                     FStatus.normal, cfg)
     
 # return list of total required materials by BOM table and qty    
 def get_required_materials(bom, qty, rb):
