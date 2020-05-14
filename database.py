@@ -6,6 +6,7 @@ Created on Wed Apr 22 22:35:05 2020
 """
 import sys
 import MySQLdb
+from constant import FName
 
 class Database:
   def __init__(self, cfg):
@@ -13,9 +14,33 @@ class Database:
     self.db = MySQLdb.connect(cfg.ip, cfg.username, cfg.password, dbname, charset='utf8')
     print("Connected to DB successfully.")
     self.db.autocommit(True)
-    
+  
+  # return dict: key=fname, val=dict_1 (key=fid(0-9), val=0/1)
+  # 0为正常，1为攻击状态
   def get_attack(self):
-    print("<TODO> %s: return(fname, fid, tlen)" % __name__)
+    #print("%s" % __name__)
+    tbl_name = "attacksignal"
+    c = self.db.cursor()
+    query = "SELECT * FROM %s" % tbl_name
+    c.execute(query)
+    
+    attack_info = {}
+    
+    # meaning for column index
+    i_id = 0
+    i_type = 1
+    i_count = 2
+    i_status = 3
+    result = c.fetchall()
+    for row in result:
+      fname = FName.get(row[i_type])
+      if fname not in attack_info:
+        attack_info[fname] = {}
+      fid = (row[i_id]-1) % 10
+      status = int.from_bytes(row[i_status], "little")
+      attack_info[fname].update({fid: status})
+    c.close()
+    return attack_info
   
   # return true if mname is ready, return false otherwise
   def is_module_ready(self, mname):
@@ -28,7 +53,6 @@ class Database:
     c.close()
 
   def add_daily_log(self, fname, fid, fstatus, wtype, iname, rate, order_qty, stock_qty, qty_sum, exp_tlen, ideal_tlen, actual_tlen, energy):
-    #print("<TODO> %s: return boolean" % (self.add_daily_summary.__name__))
     #tbl_name = "daily_logs"
     tbl_name = "daily_logs_new2"
     c = self.db.cursor()
@@ -39,8 +63,3 @@ class Database:
     c.close()
     #quit()
     #sys.exit(0)
-
-  # many set functions - change DB dynamically
-  
-  
-    

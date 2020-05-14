@@ -61,7 +61,7 @@ class Simulation:
         total_orders_am = 0 # 汽车订单总数
         while True:
           print("\n ===== Day %d =====" % t)
-
+          
           if t > 0:
             start = datetime.datetime.now()
             #print("[Step 1]: 物流处理、能耗规划、生产并记录")
@@ -122,9 +122,9 @@ class Simulation:
             #current_order_am.display()
 
             # choose supplier
-            supplier_ac = self.select_supplier(current_order_ac.supplier_name,0)
+            supplier_ac = self.get_factory(current_order_ac.supplier_name,0)
             supplier_ac.set_order(current_order_ac)
-            supplier_am = self.select_supplier(current_order_am.supplier_name,0)
+            supplier_am = self.get_factory(current_order_am.supplier_name,0)
             supplier_am.set_order(current_order_am)
             
             # 产生首次维修事件组
@@ -147,7 +147,7 @@ class Simulation:
                 print("<< 完成订单（飞机） %d, ready for next Order!" % current_order_ac.oid)
                 current_order_ac = self.orders_ac.get()
                 print(">> 新订单（飞机） %d - 开始处理" % current_order_ac.oid)
-                supplier_ac = self.select_supplier(current_order_ac.supplier_name,0)
+                supplier_ac = self.get_factory(current_order_ac.supplier_name,0)
                 supplier_ac.set_order(current_order_ac)
               else:
                 print("<<< 完成订单（飞机） %d, 已无后续飞机订单！" % current_order_ac.oid)
@@ -157,7 +157,7 @@ class Simulation:
                 print("<< 完成订单（汽车） %d, ready for next Order!" % current_order_am.oid)
                 current_order_am = self.orders_am.get()
                 print(">> 新订单（汽车） %d - 开始处理" % current_order_am.oid)
-                supplier_am = self.select_supplier(current_order_am.supplier_name,0)
+                supplier_am = self.get_factory(current_order_am.supplier_name,0)
                 supplier_am.set_order(current_order_am)
               else:
                 print("<<< 完成订单（汽车） %d, 已无后续汽车订单！" % current_order_am.oid)
@@ -167,23 +167,30 @@ class Simulation:
               break
 
           if t > 0:
-            #print("[Step 4]: 调整时间")
+            print("[Step 4]: 调整时间 - TODO")
             if self.config.enable_delay:
-              tdelta = datetime.datetime.now() - start
-              while tdelta.seconds < self.day_by_sec:
-                time.sleep(0.1) # 100ms
-                tdelta = datetime.datetime.now() - start
+              #tdelta = datetime.datetime.now() - start
+              #while tdelta.seconds < self.day_by_sec:
+                
+                # 攻击处理
+                attack_info = self.db.get_attack()
+                #print("factory types: %d" % len(attack_info))
+                for fname, v in attack_info.items():
+                  #print("%s: cnt=%d" % (fname, len(v)))
+                  for fid in v.keys():
+                    if attack_info[fname][fid] == 1:
+                      if f.status != constant.FStatus.under_attack:
+                        f = self.get_factory(fname, fid)
+                        f.status = constant.FStatus.under_attack
+                        print(">> %s(%d): 被攻击 -> 攻击处理 - TODO" % (fname,fid+1))
+                    #else:
+                    #  print("%d: 正常" % (fid+1))
+                quit
+                #time.sleep(0.1) # 100ms
+                #tdelta = datetime.datetime.now() - start
 
           t += 1
             
-        # TODO: Attacks
-        # if getAttacked:
-        #   process attack
-        # else
-        #   if time_length_sofar < self.day_by_sec:
-        #       continue check attack
-        #
-        #
         tdlt = datetime.datetime.now() - t1
         print("\n>>> 本次演示 %d 天，实际花费 %.2f 分钟, 共产生/完成飞机订单 %d, 汽车订单 %d" % (t, tdlt.seconds/60,total_orders_ac,total_orders_am))
 
@@ -204,7 +211,7 @@ class Simulation:
                                 e.src, e.sid, e.dest, e.did, goods))
           # 发货后检查是否可以继续生产？
           if e.dest not in [constant.FName.harbor]:
-            f = self.select_supplier(e.dest, e.did)
+            f = self.get_factory(e.dest, e.did)
             if not f.is_mwarehouse_short() and not f.is_pwarehouse_full():
               if f.status == constant.FStatus.pause:
                 print("### %s(%d)：%s -- 物流发货 --> 正常" % (f.name, f.id+1, f.status))
@@ -239,7 +246,7 @@ class Simulation:
         goods = {} # 港口进货
       else:
         # 减少50%成品库存
-        supplier = self.select_supplier(fname, fid)
+        supplier = self.get_factory(fname, fid)
         goods = supplier.pwarehouse.halve_stocks()
       return goods
     
@@ -298,7 +305,7 @@ class Simulation:
     def plan(self, f):
       m_orders = f.plan()
       for order in m_orders:
-        m_supplier = self.select_supplier(order.supplier_name,0) # TODO
+        m_supplier = self.get_factory(order.supplier_name,0) # TODO
         m_supplier.set_order(order)
         self.plan(m_supplier)
                 
@@ -317,7 +324,7 @@ class Simulation:
      
       h.close()
       
-    def select_supplier(self, fname, fid):
+    def get_factory(self, fname, fid):
       return self.dict_f[fname][fid]
       
     # return a new order:
@@ -329,7 +336,7 @@ class Simulation:
         base = v["base"]
       qty = random.randint(lbm, ubm) * base
       
-      #supplier = self.select_supplier(fname)
+      #supplier = self.get_factory(fname)
       r = ItemRecord(iname, qty)
       order = Order(fname)
       order.add(r)      
@@ -460,4 +467,3 @@ def _save_log_f(writer, lst_f, db):
       writer.writerow([f.name,i+1,f.status,constant.WType.materials,
                        item.name,"?",item.qty,"?",item.daily_rate,"?"])
       item.reset_dr()
-            

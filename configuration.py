@@ -23,7 +23,7 @@ class Config:
         # for DEMO
         self.max_orders = 1       # 订单数上限
         self.ul_order_days = 20   # 多长时间内允许产生订单？
-        self.enable_delay = False
+        self.enable_delay = True
         
     def init_db(self):
         print("<TODO> Init DB tables")
