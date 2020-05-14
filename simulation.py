@@ -104,7 +104,7 @@ class Simulation:
           #print("[Step 3]: 能耗检查、预估；检查订单状态，安排、预测下周期生产/物流")
           # 能耗检查、预估
           self.check_pc(t)
-          #print("a. 检查、物流安排；b. 成品库停产上限检查")
+          #print("a. 检查、物流安排；b. 成品库已满 - 停产检查")
           skip_list = [constant.FName.power_station,
                        constant.FName.harbor,
                        constant.FName.community]
@@ -205,13 +205,14 @@ class Simulation:
           # 发货后检查是否可以继续生产？
           if e.dest not in [constant.FName.harbor]:
             f = self.select_supplier(e.dest, e.did)
-            if not f.is_pwarehouse_full():
+            if not f.is_mwarehouse_short() and not f.is_pwarehouse_full():
               if f.status == constant.FStatus.pause:
-                print("### %s：停产 -- 物流发货 --> 正常" % f.name)
+                print("### %s(%d)：%s -- 物流发货 --> 正常" % (f.name, f.id+1, f.status))
                 f.status = constant.FStatus.normal
         # 补充原料库
         elif e.type == constant.EventType.deliver:
           self.inc_stocks(e.dest, e.did, e.goods)
+          
         elif e.type == constant.EventType.maintain_begin:
           self.dict_f[e.dest][e.did].status = constant.FStatus.maintain
           mlen = self.config.f_mlen[e.dest]
@@ -246,13 +247,25 @@ class Simulation:
       f = self.dict_f[fname][idx]
       f.mwarehouse.inc_stocks(goods,
                               self.config.f_stocks[fname][constant.WType.materials])
-      f.status = constant.FStatus.normal
+      """bom = f.cfg.bom[fname]
+      if not f.is_pwarehouse_full():
+        print("*** inc_stocks(): status: %s, 原料足够生产？ %s" % (f.status, f.mwarehouse.maxProductQty(bom) > 0))
+        print("*** status: %s" % f.status)"""
+      # 并非成品库满导致的停产
+      if f.status == constant.FStatus.pause and not f.is_pwarehouse_full():
+        # check if the materials are enough to produce!!
+        bom = f.cfg.bom[fname]
+        if f.mwarehouse.maxProductQty(bom) > 0:
+          f.status = constant.FStatus.normal
+          print("@@@ %s(%d): 补充原料后能够继续生产！" % (fname, idx+1))
 
     # 检查、安排物流(次日)
     # 成品停产上限检查
     def arrange(self, f, t):
       # Avoid double recharge!!
-      if f.status in [constant.FStatus.normal]:
+      if f.status == constant.FStatus.normal or (
+          f.status == constant.FStatus.pause and
+          f.is_mwarehouse_short()):
         suppliers = f.check()
         for name in suppliers:
           if name not in [constant.FName.harbor]:
@@ -267,7 +280,7 @@ class Simulation:
           f.status = constant.FStatus.recharge
 
       # 成品停产上限检查
-      # 如果成品库已达停产上限，但出于触发物流状态，则进入停产状态，后续物流照常
+      # 如果成品库已达停产上限，但处于触发物流状态，则进入停产状态，后续物流照常
       if f.name not in [constant.FName.aircraft_assembly,
                         constant.FName.automobile_assembly]:
         if f.status in [constant.FStatus.normal,
@@ -275,9 +288,9 @@ class Simulation:
                         constant.FStatus.pause]:
           if f.is_pwarehouse_full():
             if f.status != constant.FStatus.pause:
-              #print("$$$ %s：%s -> 停产" % (f.name, f.status))
+              #print("$$$ %s：成品库满，%s -> 停产" % (f.name, f.status))
               f.status = constant.FStatus.pause
-          elif f.status == constant.FStatus.pause:
+          elif not f.is_mwarehouse_short() and f.status == constant.FStatus.pause:
             #print("@@@ %s：停产 -> 正常" % f.name)
             f.status = constant.FStatus.normal
       

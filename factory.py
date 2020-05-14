@@ -147,7 +147,14 @@ class Factory:
         self.pc_actual = self.pc_plan
 
     def can_produce(self):
-      # TODO: check if materials can keep manufacturing
+      # check if materials are sufficient to produce
+      if self.name not in [FName.community,
+                           FName.power_station]:
+        if self.status in [FStatus.normal, FStatus.recharge] and self.is_mwarehouse_short():
+          print("$$$ %s(%d): 原料不足，%s -> 停产！" % (self.name, self.id+1, self.status))
+          # 原料库不足以生产一份成品(not actual qty, just the multiple of certain ratebase)
+          self.status = FStatus.pause
+          self.pc_actual = 0 # update 实际用电
       return self.status in [FStatus.normal, FStatus.recharge]
 
     # periodic manufacture if possible
@@ -209,6 +216,10 @@ class Factory:
     
     def is_pwarehouse_full(self):
       return self.pwarehouse.is_full(self.cfg.f_stocks[self.name][WType.products])
+    
+    def is_mwarehouse_short(self):
+      bom = self.cfg.bom[self.name]
+      return self.mwarehouse.maxProductQty(bom) <= 0
       
     # 计算需要订购的原料，返回给下游工厂的订单list
     def plan(self):
