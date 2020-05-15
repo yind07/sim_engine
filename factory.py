@@ -215,7 +215,11 @@ class Factory:
       return supplier_names
     
     def is_pwarehouse_full(self):
-      return self.pwarehouse.is_full(self.cfg.f_stocks[self.name][WType.products])
+      # 总装厂例外！
+      if self.name not in [FName.aircraft_assembly,
+                           FName.automobile_assembly]:
+        return self.pwarehouse.is_full(self.cfg.f_stocks[self.name][WType.products])
+      return False
     
     def is_mwarehouse_short(self):
       bom = self.cfg.bom[self.name]
@@ -336,7 +340,8 @@ def get_lst_materials(dict_m):
 # return a new factory by fname and initial configuration(static)
 def get_newf(cfg, fname, idx):
     # specific for community
-    if fname == FName.community:
+    if fname in [FName.community,
+                 FName.power_station]:
       return Factory(fname, idx, None, None, FStatus.normal, cfg)
     else:
       return Factory(fname, idx,\

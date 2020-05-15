@@ -128,7 +128,7 @@ class FStatus(Enum):
     pause         = 3     # 停产（成品库存达上限 - 已用）
     maintain      = 4     # 维修 - 已用
     blackout      = 5     # 停电 - 已用
-    under_attack  = 6
+    under_attack  = 6     # 被攻击 - 已用
     
     
 # 订单状态

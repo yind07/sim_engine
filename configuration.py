@@ -19,7 +19,7 @@ class Config:
         #print("%s %s %s" % (self.ip, self.username, self.password))
         self.__cfg_factory(xls)
         self.__cfg_stocks(xls)
-        self.__cfg_power_station(xls)
+
         # for DEMO
         self.max_orders = 1       # 订单数上限
         self.ul_order_days = 20   # 多长时间内允许产生订单？
@@ -38,12 +38,6 @@ class Config:
         self.ip = db.loc[0, "ip"]
         self.username = db.loc[0, "username"]
         self.password = db.loc[0, "password"]
-        
-    def __cfg_power_station(self, h_xls):
-        ps = pandas.read_excel(h_xls, "power_station")
-        self.ps_devia_lb = ps.loc[0, "总发电量下限"]
-        self.ps_devia_ub = ps.loc[0, "发电预测上限"]
-        #print("power station: lb=%.2f, ub=%.2f" % (self.ps_devia_lb, self.ps_devia_ub))
 
     def __cfg_factory(self, h_xls):
         cfg_col_name = "名称"
@@ -55,11 +49,11 @@ class Config:
         cfg_col_deviation = "波动范围"
 
         self.f_num = {}   # 各厂数量
-        self.f_pc = {}    # 各厂能耗（单位：1000 Kwh/周期）
+        self.f_pc = {}    # 各厂能耗（单位：1000 Kwh/周期）；发电厂日发电量
         self.f_mlen = {}  # 各厂维修恢复时长（单位：时间周期）
         self.f_mplb = {}  # 各厂维修触发周期下限（单位：时间周期）
         self.f_mpub = {}  # 各厂维修触发周期上限（单位：时间周期）
-        self.f_deviation = {}  # 工厂：消耗/生产速度波动；居民区：耗电波动
+        self.f_deviation = {}  # 工厂：消耗/生产速度波动；居民区：耗电波动；发电厂：次日发电预测上限
 
         df = pandas.read_excel(h_xls, "factory")
         for i in range(len(df)):
