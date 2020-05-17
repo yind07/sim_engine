@@ -172,24 +172,7 @@ class Simulation:
               #while tdelta.seconds < self.day_by_sec:
                 
                 # 攻击处理
-                attack_info = self.db.get_attack()
-                #print("factory types: %d" % len(attack_info))
-                for fname, v in attack_info.items():
-                  #print("%s: cnt=%d" % (fname, len(v)))
-                  for fid in v.keys():
-                    f = self.get_factory(fname, fid)
-                    if f != None:
-                      if attack_info[fname][fid] == 1:
-                        if f.status != constant.FStatus.under_attack:
-                          f.status = constant.FStatus.under_attack
-                          f.pc_actual = 0
-                          print(">> %s(%d): 被攻击 -> 攻击处理" % (fname,fid+1))
-                      else: # 攻击取消 - attack_info[fname][fid] == 0
-                        if f.status == constant.FStatus.under_attack:
-                          # constraits: no backup of status before being attacked!
-                          f.status = constant.FStatus.normal
-                          f.pc_actual = f.pc_plan
-                          print(">> %s(%d): 攻击取消 -> 正常" % (fname,fid+1))
+                self.handle_attacks()
                 #time.sleep(0.1) # 100ms
                 #tdelta = datetime.datetime.now() - start
 
@@ -197,6 +180,27 @@ class Simulation:
             
         tdlt = datetime.datetime.now() - t1
         print("\n>>> 本次演示 %d 天，实际花费 %.2f 分钟, 共产生/完成飞机订单 %d, 汽车订单 %d" % (t, tdlt.seconds/60,total_orders_ac,total_orders_am))
+
+    # 攻击处理
+    def handle_attacks(self):
+      attack_info = self.db.get_attack()
+      #print("factory types: %d" % len(attack_info))
+      for fname, v in attack_info.items():
+        #print("%s: cnt=%d" % (fname, len(v)))
+        for fid in v.keys():
+          f = self.get_factory(fname, fid)
+          if f != None:
+            if attack_info[fname][fid] == 1:
+              if f.status != constant.FStatus.under_attack:
+                f.status = constant.FStatus.under_attack
+                f.pc_actual = 0
+                print(">> %s(%d): 被攻击 -> 攻击处理" % (fname,fid+1))
+            else: # 攻击取消 - attack_info[fname][fid] == 0
+              if f.status == constant.FStatus.under_attack:
+                # constraits: no backup of status before being attacked!
+                f.status = constant.FStatus.normal
+                f.pc_actual = f.pc_plan
+                print(">> %s(%d): 攻击取消 -> 正常" % (fname,fid+1))
 
     # 物流处理 - 每天开始生产前
     def handle_events(self, t):
@@ -355,21 +359,13 @@ class Simulation:
     
     # 日发电量 * 可用发电厂数
     def get_total_power(self):
+      # check if power stations are under attack first!
+      self.handle_attacks()
       power = 0
       for f in self.dict_f[constant.FName.power_station]:
         if f.status != constant.FStatus.under_attack:
           power += self.config.f_pc[f.name]
       return power
-
-      """# 总满载电量
-      full_power = 0
-      skip_list = [constant.FName.power_station,
-                   constant.FName.harbor]
-      for fname in constant.dict_fname.values():
-        if fname not in skip_list:
-          full_power += self.config.f_pc[fname]*self.config.f_num[fname]
-      #print("总满载电量：%.2f 千度/天" % self.initial_full_power)
-      return full_power*(1-self.config.ps_devia_lb)"""
     
     # 如果电厂遭攻击，按比例计算预测发电总量！
     #def adjust_pc_estimation():
@@ -381,11 +377,9 @@ class Simulation:
       # 实际发电能力（电厂可能遭攻击！）
       power_supply = self.get_total_power()
       print("计划用电：%.2f， 实际能提供：%.2f" % (self.power_estimation, power_supply))
-      if power_supply == 0:
-        print("没有电力，全部停产！ - TODO")
-        quit
-
-      if self.power_estimation > power_supply:
+      if power_supply <= 0:
+        self.blackout_all()
+      elif self.power_estimation > power_supply:
         self.blackout_factories(self.power_estimation - power_supply)
       else:
         print("实际发电能力足够!")
@@ -409,6 +403,17 @@ class Simulation:
         # 次日预测能耗
         self.power_estimation = pc_actual*(1+self.config.f_deviation[constant.FName.power_station])
         #print("发电预测：%.2f" % self.power_estimation)
+    
+    # shutdown all factories
+    def blackout_all(self):
+      print("没有电力，全部停产！")
+      skip_list = [constant.FName.harbor]
+      for fname in constant.dict_fname.values():
+        if fname not in skip_list:
+          for f in self.dict_f[fname]:
+            if f.status != constant.FStatus.blackout:
+              f.status = constant.FStatus.blackout
+              f.pc_actual = 0 # update 实际用电
       
     # select factories to shutdown
     # To make sure:
