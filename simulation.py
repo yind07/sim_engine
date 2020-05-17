@@ -224,6 +224,7 @@ class Simulation:
               if f.status == constant.FStatus.pause:
                 print("### %s(%d)：%s -- 物流发货 --> 正常" % (f.name, f.id+1, f.status))
                 f.status = constant.FStatus.normal
+                f.pc_actual = f.pc_plan
         # 补充原料库
         elif e.type == constant.EventType.deliver:
           self.inc_stocks(e.dest, e.did, e.goods)
@@ -231,6 +232,7 @@ class Simulation:
         elif e.type == constant.EventType.maintain_begin:
           if not self.is_underattack(e.dest, e.did):
             self.dict_f[e.dest][e.did].status = constant.FStatus.maintain
+            #self.dict_f[e.dest][e.did].pc_actual = self.dict_f[e.dest][e.did].pc_plan
             mlen = self.config.f_mlen[e.dest]
             print("%s(%d)开始维修，需要 %d 天" % (e.dest,e.did+1,mlen))
             # 根据维修时长，产生维修结束event
@@ -240,6 +242,7 @@ class Simulation:
           if not self.is_underattack(e.dest, e.did):
             # TODO: if need restore last status before maintain?
             self.dict_f[e.dest][e.did].status = constant.FStatus.normal
+            #self.dict_f[e.dest][e.did].pc_actual = self.dict_f[e.dest][e.did].pc_plan
             print("%s(%d)结束维修" % (e.dest,e.did+1))
             # 产生下次维修开始event
             mt = random.randint(self.config.f_mplb[e.dest],
@@ -271,6 +274,7 @@ class Simulation:
         bom = f.cfg.bom[fname]
         if f.mwarehouse.maxProductQty(bom) > 0:
           f.status = constant.FStatus.normal
+          f.pc_actual = f.pc_plan
           print("@@@ %s(%d): 补充原料后能够继续生产！" % (fname, idx+1))
 
     # 检查、安排物流(次日)
@@ -304,9 +308,11 @@ class Simulation:
             if f.status != constant.FStatus.pause:
               #print("$$$ %s：成品库满，%s -> 停产" % (f.name, f.status))
               f.status = constant.FStatus.pause
+              f.pc_actual = 0 # update 实际用电
           elif not f.is_mwarehouse_short() and f.status == constant.FStatus.pause:
             #print("@@@ %s：停产 -> 正常" % f.name)
             f.status = constant.FStatus.normal
+            f.pc_actual = f.pc_plan
       
     # plan the production - recursive!
     def plan(self, f):
@@ -367,9 +373,6 @@ class Simulation:
           power += self.config.f_pc[f.name]
       return power
     
-    # 如果电厂遭攻击，按比例计算预测发电总量！
-    #def adjust_pc_estimation():
-      
     
     # 根据当日发电量规划参与生产的工厂，并记录实际用电量
     # Add attack handling for power station! - 5/15/2020
@@ -395,11 +398,13 @@ class Simulation:
           if fname in self.dict_f and fname != constant.FName.power_station:
             for f in self.dict_f[fname]:
               #print("%s(id=%d, %s), pc_actual=%.2f" % (f.name, f.id+1, f.status, f.pc_actual))
-              pc_actual += f.pc_actual
+              # !! Important: 先恢复停电的工厂能耗，再预估！
               if f.status == constant.FStatus.blackout:
                 # !! Important: 停电工厂状态 -> 正常
                 f.status = constant.FStatus.normal
-        print("本日实际能耗：%.2f" % pc_actual)
+                f.pc_actual = f.pc_plan # 停电结束后，能耗恢复!
+              pc_actual += f.pc_actual
+        #print("本日实际能耗：%.2f" % pc_actual)
         # 次日预测能耗
         self.power_estimation = pc_actual*(1+self.config.f_deviation[constant.FName.power_station])
         #print("发电预测：%.2f" % self.power_estimation)
@@ -438,11 +443,38 @@ class Simulation:
             if saved_power >= delta:
               print("发电总量够了！")
               break
-              
-      if saved_power < delta:
-        print("saved_power = %.2f, 发电总量还是不够！开始从最下游关闭/停电工厂！- TODO" % saved_power)
-        quit
 
+      if saved_power < delta:
+        print("saved_power = %.2f, 发电总量还是不够！" % saved_power)
+        self.blackout_by_order(delta - saved_power)
+
+    def blackout_by_order(self, delta):
+      print("开始从最下游关闭/停电工厂！")
+      saved_power = 0
+      fname_list = [constant.FName.petrochemical,
+                    constant.FName.iron_making, constant.FName.alum_making,
+                    constant.FName.chemical,
+                    constant.FName.cold_rolling, constant.FName.hot_rolling,
+                    constant.FName.plastic_parts,
+                    constant.FName.iron_parts, constant.FName.alum_parts,
+                    constant.FName.automobile_assembly,
+                    constant.FName.aircraft_assembly]
+      for fname in fname_list:
+        for f in self.dict_f[fname]:
+          if f.status in [constant.FStatus.normal,
+                          constant.FStatus.recharge,
+                          constant.FStatus.maintain]: # 维护要耗电！
+            f.status = constant.FStatus.blackout
+            print("%s(id=%d): %s, saved %.2f" % (f.name, f.id+1, f.status, f.pc_plan))
+            saved_power += f.pc_plan
+            f.pc_actual = 0 # update 实际用电
+            if saved_power >= delta:
+              break
+        if saved_power >= delta:
+          print("发电总量够了！")
+          break
+      print("Will save power %.2f" % saved_power)
+      
     # 对于生产链中多于1家可以正常生产的厂, 返回True
     def is_ok4blackout(self, fname):
       if self.config.f_num[fname] == 1:
