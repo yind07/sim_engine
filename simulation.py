@@ -92,7 +92,8 @@ class Simulation:
           num_orders_ac = self.orders_ac.qsize()
           num_orders_am = self.orders_am.qsize()
           #print("[Step 2]: 按需产生新订单, 当前排队订单数 - 飞机(%d)，汽车(%d)" % (num_orders_ac, num_orders_am))
-          if t <= self.config.ul_order_days:
+          #if t <= self.config.ul_order_days:
+          if True:
             if num_orders_ac < self.config.max_orders:
               self.orders_ac.put(self.get_new_order(6,10,constant.FName.aircraft_assembly))
               total_orders_ac += 1
@@ -166,20 +167,20 @@ class Simulation:
               break
 
           if t > 0:
-            print("[Step 4]: 调整时间 - TODO")
+            #print("[Step 4]: 调整时间")
             if self.config.enable_delay:
-              #tdelta = datetime.datetime.now() - start
-              #while tdelta.seconds < self.day_by_sec:
+              tdelta = datetime.datetime.now() - start
+              while tdelta.seconds < self.day_by_sec:
                 
                 # 攻击处理
                 self.handle_attacks()
-                #time.sleep(0.1) # 100ms
-                #tdelta = datetime.datetime.now() - start
+                time.sleep(0.1) # 100ms
+                tdelta = datetime.datetime.now() - start
 
           t += 1
             
         tdlt = datetime.datetime.now() - t1
-        print("\n>>> 本次演示 %d 天，实际花费 %.2f 分钟, 共产生/完成飞机订单 %d, 汽车订单 %d" % (t, tdlt.seconds/60,total_orders_ac,total_orders_am))
+        print("\n>>> 本次演示 %d 天，实际花费 %.2f 分钟, 共产生/完成飞机订单 %d, 汽车订单 %d" % (t-1, tdlt.seconds/60,total_orders_ac,total_orders_am))
 
     # 攻击处理
     def handle_attacks(self):
