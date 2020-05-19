@@ -85,8 +85,7 @@ class Simulation:
             # format example: 200507102338
             timestamp = datetime.datetime.now().strftime("%y%m%d%H%M%S")
             logfname = "logs\\log-%s-%d.csv" % (timestamp, t)
-            self.db.clear_table("daily_logs_new2")
-            #self.db.clear_table("daily_logs")
+            self.db.clear_table("daily_logs")
             self.save_log(logfname)
           
           num_orders_ac = self.orders_ac.qsize()
@@ -241,7 +240,7 @@ class Simulation:
                                   e.dest, e.did, e.src, e.sid, e.goods))
         elif e.type == constant.EventType.maintain_end:
           if not self.is_underattack(e.dest, e.did):
-            # TODO: if need restore last status before maintain?
+            # depends: if need restore last status before maintain?
             self.dict_f[e.dest][e.did].status = constant.FStatus.normal
             #self.dict_f[e.dest][e.did].pc_actual = self.dict_f[e.dest][e.did].pc_plan
             print("%s(%d)结束维修" % (e.dest,e.did+1))
@@ -319,7 +318,7 @@ class Simulation:
     def plan(self, f):
       m_orders = f.plan()
       for order in m_orders:
-        m_supplier = self.get_factory(order.supplier_name,0) # TODO
+        m_supplier = self.get_factory(order.supplier_name,0) # id - depends
         m_supplier.set_order(order)
         self.plan(m_supplier)
                 

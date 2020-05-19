@@ -44,7 +44,7 @@ class Database:
   
   # return true if mname is ready, return false otherwise
   def is_module_ready(self, mname):
-    print("<TODO> %s: Check if %s is ready, return boolean" % (self.is_module_ready.__name__, mname))
+    print("%s: Check if %s is ready, return boolean - <depends>" % (self.is_module_ready.__name__, mname))
     return True
   
   def clear_table(self, tbl_name):
@@ -53,8 +53,7 @@ class Database:
     c.close()
 
   def add_daily_log(self, fname, fid, fstatus, wtype, iname, rate, order_qty, stock_qty, qty_sum, exp_tlen, ideal_tlen, actual_tlen, energy):
-    #tbl_name = "daily_logs"
-    tbl_name = "daily_logs_new2"
+    tbl_name = "daily_logs"
     c = self.db.cursor()
     query = "INSERT INTO %s values ('%s',%d,'%s','%s','%s',%d,%.2f,%d,%.2f,%d,%d,%d,%.2f)" % (tbl_name, fname,fid,fstatus,wtype,iname,order_qty,stock_qty,qty_sum,rate,ideal_tlen,actual_tlen,exp_tlen,energy)
     #query = "INSERT INTO %s values ('%s',%s,'%s','%s','%s',%s,%s,%s,%s,%s)" % (tbl_name, fname,fid,fstatus,wtype,iname,order_qty,stock_qty,qty_sum,rate,exp_tlen)

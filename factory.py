@@ -237,7 +237,7 @@ class Factory:
         
         if len(demand) > 0:
           m_order = order.Order(fname)
-          m_order.set_demander(self.name, 0) # TODO id
+          m_order.set_demander(self.name, 0) # id - depends
           m_order.goods = demand
           
           m_orders.append(m_order)

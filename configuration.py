@@ -26,7 +26,7 @@ class Config:
         self.enable_delay = True
         
     def init_db(self):
-        print("<TODO> Init DB tables")
+        print("Init DB tables - <depends>")
 
     # init by warehouse goods ratebase ratio!!!
     def get_init_qty(self, fname, wtype, iname):
@@ -35,9 +35,9 @@ class Config:
       
     def __cfg_db(self, h_xls):
         db = pandas.read_excel(h_xls, "database")
-        self.ip = db.loc[0, "ip"]
-        self.username = db.loc[0, "username"]
-        self.password = db.loc[0, "password"]
+        self.ip = str(db.loc[0, "ip"])
+        self.username = str(db.loc[0, "username"])
+        self.password = str(db.loc[0, "password"])
 
     def __cfg_factory(self, h_xls):
         cfg_col_name = "名称"
