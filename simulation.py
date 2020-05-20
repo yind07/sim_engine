@@ -18,6 +18,7 @@ import csv
 import random
 import datetime
 import time
+import keyboard
 
 class Simulation:
     def __init__(self, cfg, db, sec=1):
@@ -59,6 +60,11 @@ class Simulation:
         total_orders_ac = 0 # 飞机订单总数
         total_orders_am = 0 # 汽车订单总数
         while True:
+          # detect key pressing
+          if keyboard.is_pressed('q'):
+            #print('You Pressed a Key!')
+            break # quit decently
+
           print("\n ===== Day %d =====" % t)
           
           if t > 0:
@@ -175,6 +181,10 @@ class Simulation:
                 self.handle_attacks()
                 time.sleep(0.1) # 100ms
                 tdelta = datetime.datetime.now() - start
+                # detect key pressing
+                if keyboard.is_pressed('q'):
+                  #print('You Pressed a Key!')
+                  break
 
           t += 1
             
