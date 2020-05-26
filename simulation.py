@@ -189,7 +189,7 @@ class Simulation:
           t += 1
             
         tdlt = datetime.datetime.now() - t1
-        print("\n>>> 本次演示 %d 天，实际花费 %.2f 分钟, 共产生/完成飞机订单 %d, 汽车订单 %d" % (t-1, tdlt.seconds/60,total_orders_ac,total_orders_am))
+        print("\n>>> 本次演示 %d 天，实际花费%d天 %d小时%d分钟%d秒, 共产生飞机订单 %d, 汽车订单 %d" % (t-1, tdlt.days,tdlt.seconds/3600,tdlt.seconds%3600/60,tdlt.seconds%60,total_orders_ac,total_orders_am))
 
     # 攻击处理
     def handle_attacks(self):
