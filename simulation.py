@@ -530,5 +530,13 @@ def _save_log_f(writer, lst_f, db):
     # 原料库
     for item in f.mwarehouse.stocks:
       writer.writerow([f.name,i+1,f.status,constant.WType.materials,
-                       item.name,"?",item.qty,"?",item.daily_rate,"?"])
+                       item.name,"?",item.qty,"?",item.daily_rate,"?","?","?",
+                       f.get_daily_pc()])
+      db.add_daily_log(f.name,i+1,f.status,constant.WType.materials,
+                       item.name, item.daily_rate,
+                       "?",
+                       item.qty,
+                       "?",
+                       "?", "?", "?",
+                       f.get_daily_pc())
       item.reset_dr()

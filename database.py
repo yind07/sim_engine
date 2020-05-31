@@ -6,7 +6,7 @@ Created on Wed Apr 22 22:35:05 2020
 """
 import sys
 import MySQLdb
-from constant import FName
+from constant import FName, WType
 
 class Database:
   def __init__(self, cfg):
@@ -55,8 +55,11 @@ class Database:
   def add_daily_log(self, fname, fid, fstatus, wtype, iname, rate, order_qty, stock_qty, qty_sum, exp_tlen, ideal_tlen, actual_tlen, energy):
     tbl_name = "daily_logs"
     c = self.db.cursor()
-    query = "INSERT INTO %s values ('%s',%d,'%s','%s','%s',%d,%.2f,%d,%.2f,%d,%d,%d,%.2f)" % (tbl_name, fname,fid,fstatus,wtype,iname,order_qty,stock_qty,qty_sum,rate,ideal_tlen,actual_tlen,exp_tlen,energy)
+    if wtype == WType.products:
+      query = "INSERT INTO %s values ('%s',%d,'%s','%s','%s',%d,%.2f,%d,%.2f,%d,%d,%d,%.2f)" % (tbl_name, fname,fid,fstatus,wtype,iname,order_qty,stock_qty,qty_sum,rate,ideal_tlen,actual_tlen,exp_tlen,energy)
     #query = "INSERT INTO %s values ('%s',%s,'%s','%s','%s',%s,%s,%s,%s,%s)" % (tbl_name, fname,fid,fstatus,wtype,iname,order_qty,stock_qty,qty_sum,rate,exp_tlen)
+    else: # wtype == WType.materials:
+      query = "INSERT INTO %s values ('%s',%d,'%s','%s','%s',NULL,%.2f,NULL,%d,NULL,NULL,NULL,%.2f)" % (tbl_name, fname,fid,fstatus,wtype,iname,stock_qty,rate,energy)
     #print(query)
     c.execute(query) #c.execute(query.encode("cp936"))
     c.close()
