@@ -506,7 +506,7 @@ def _save_log_f(writer, lst_f, db):
   for i, f in enumerate(lst_f):
     # add power station info - 2020/6/9
     if f.name == constant.FName.power_station:
-      print("Saving power station data: %s", f)
+      #print("Saving power station data: %s", f)
       writer.writerow([f.name,i+1,f.status,"?","?","?","?","?","?","?","?","?","?"])
       db.add_daily_log(f.name,i+1,f.status,"?","?","?","?","?","?","?","?","?","?")
     else:
