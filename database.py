@@ -58,8 +58,10 @@ class Database:
     if wtype == WType.products:
       query = "INSERT INTO %s values ('%s',%d,'%s','%s','%s',%d,%.2f,%d,%.2f,%d,%d,%d,%.2f)" % (tbl_name, fname,fid,fstatus,wtype,iname,order_qty,stock_qty,qty_sum,rate,ideal_tlen,actual_tlen,exp_tlen,energy)
     #query = "INSERT INTO %s values ('%s',%s,'%s','%s','%s',%s,%s,%s,%s,%s)" % (tbl_name, fname,fid,fstatus,wtype,iname,order_qty,stock_qty,qty_sum,rate,exp_tlen)
-    else: # wtype == WType.materials:
+    elif wtype == WType.materials:
       query = "INSERT INTO %s values ('%s',%d,'%s','%s','%s',NULL,%.2f,NULL,%d,NULL,NULL,NULL,%.2f)" % (tbl_name, fname,fid,fstatus,wtype,iname,stock_qty,rate,energy)
+    else: # so far for power station ONLY!
+      query = "INSERT INTO %s values ('%s',%d,'%s','N/A','N/A',NULL,0,NULL,0,NULL,NULL,NULL,0)" % (tbl_name, fname,fid,fstatus)      
     #print(query)
     c.execute(query) #c.execute(query.encode("cp936"))
     c.close()

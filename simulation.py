@@ -338,8 +338,7 @@ class Simulation:
         w = csv.writer(h)
         w.writerow(["厂名","Id","状态","仓库","品名","订购总数","当前库存","已完成数量","生产/消耗速度","计划多久","已花多久","还需多久","能耗"])
         
-        skip_list = [constant.FName.power_station,
-                     constant.FName.harbor,
+        skip_list = [constant.FName.harbor,
                      constant.FName.community]
         for fname in constant.dict_fname.values():
           if fname not in skip_list:
@@ -501,42 +500,48 @@ class Simulation:
       if f != None:
         return f.status == constant.FStatus.under_attack
       return False
-      
+
 # helper function for save_log
 def _save_log_f(writer, lst_f, db):
   for i, f in enumerate(lst_f):
-    # 成品库
-    for item in f.pwarehouse.stocks:
-      writer.writerow([f.name,i+1,f.status,constant.WType.products,
-                       item.name,
-                       f.get_ordered_qty(item.name), # 订购总数
-                       item.qty, # 当前库存
-                       f.get_qty_sum(item.name), # 已完成数量
-                       item.daily_rate, # 生产速度
-                       f.get_ideal_tlen(item.name), #计划多久
-                       f.get_actual_tlen(item.name), #已经多久
-                       f.get_expected_tlen(item.name), # 还要多久完工
-                       f.get_daily_pc()]) #能耗
-      db.add_daily_log(f.name,i+1,f.status,constant.WType.products,
-                       item.name, item.daily_rate,
-                       f.get_ordered_qty(item.name),
-                       item.qty,
-                       f.get_qty_sum(item.name),
-                       f.get_expected_tlen(item.name),
-                       f.get_ideal_tlen(item.name),
-                       f.get_actual_tlen(item.name),
-                       f.get_daily_pc())
-      item.reset_dr()
-    # 原料库
-    for item in f.mwarehouse.stocks:
-      writer.writerow([f.name,i+1,f.status,constant.WType.materials,
-                       item.name,"?",item.qty,"?",item.daily_rate,"?","?","?",
-                       f.get_daily_pc()])
-      db.add_daily_log(f.name,i+1,f.status,constant.WType.materials,
-                       item.name, item.daily_rate,
-                       "?",
-                       item.qty,
-                       "?",
-                       "?", "?", "?",
-                       f.get_daily_pc())
-      item.reset_dr()
+    # add power station info - 2020/6/9
+    if f.name == constant.FName.power_station:
+      print("Saving power station data: %s", f)
+      writer.writerow([f.name,i+1,f.status,"?","?","?","?","?","?","?","?","?","?"])
+      db.add_daily_log(f.name,i+1,f.status,"?","?","?","?","?","?","?","?","?","?")
+    else:
+      # 成品库
+      for item in f.pwarehouse.stocks:
+        writer.writerow([f.name,i+1,f.status,constant.WType.products,
+                         item.name,
+                         f.get_ordered_qty(item.name), # 订购总数
+                         item.qty, # 当前库存
+                         f.get_qty_sum(item.name), # 已完成数量
+                         item.daily_rate, # 生产速度
+                         f.get_ideal_tlen(item.name), #计划多久
+                         f.get_actual_tlen(item.name), #已经多久
+                         f.get_expected_tlen(item.name), # 还要多久完工
+                         f.get_daily_pc()]) #能耗
+        db.add_daily_log(f.name,i+1,f.status,constant.WType.products,
+                         item.name, item.daily_rate,
+                         f.get_ordered_qty(item.name),
+                         item.qty,
+                         f.get_qty_sum(item.name),
+                         f.get_expected_tlen(item.name),
+                         f.get_ideal_tlen(item.name),
+                         f.get_actual_tlen(item.name),
+                         f.get_daily_pc())
+        item.reset_dr()
+      # 原料库
+      for item in f.mwarehouse.stocks:
+        writer.writerow([f.name,i+1,f.status,constant.WType.materials,
+                         item.name,"?",item.qty,"?",item.daily_rate,"?","?","?",
+                         f.get_daily_pc()])
+        db.add_daily_log(f.name,i+1,f.status,constant.WType.materials,
+                         item.name, item.daily_rate,
+                         "?",
+                         item.qty,
+                         "?",
+                         "?", "?", "?",
+                         f.get_daily_pc())
+        item.reset_dr()
