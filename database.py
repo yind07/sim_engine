@@ -33,12 +33,14 @@ class Database:
     i_status = 3
     result = c.fetchall()
     for row in result:
-      fname = FName.get(row[i_type])
-      if fname not in attack_info:
-        attack_info[fname] = {}
-      fid = (row[i_id]-1) % 10
-      status = int.from_bytes(row[i_status], "little")
-      attack_info[fname].update({fid: status})
+      # skip the specific id - reserved for sim_airplane
+      if row[i_id] != 0:
+        fid = (row[i_id]-1) % 10
+        fname = FName.get(row[i_type])
+        if fname not in attack_info:
+          attack_info[fname] = {}
+        status = int.from_bytes(row[i_status], "little")
+        attack_info[fname].update({fid: status})
     c.close()
     return attack_info
   
