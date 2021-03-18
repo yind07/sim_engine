@@ -323,6 +323,13 @@ class Simulation:
             #print("@@@ %s：停产 -> 正常" % f.name)
             f.status = constant.FStatus.normal
             f.pc_actual = f.pc_plan
+      else: # 总装厂
+        if f.status in [constant.FStatus.recharge,
+                        constant.FStatus.pause] and not f.is_mwarehouse_short():
+          print("@@@ %s：原料库够，%s -> 正常生产" % (f.name, f.status))
+          f.status = constant.FStatus.normal
+          f.pc_actual = f.pc_plan
+      
       
     # plan the production - recursive!
     def plan(self, f):
