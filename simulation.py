@@ -100,10 +100,10 @@ class Simulation:
           #if t <= self.config.ul_order_days:
           if True:
             if num_orders_ac < self.config.max_orders:
-              self.orders_ac.put(self.get_new_order(6,10,constant.FName.aircraft_assembly))
+              self.orders_ac.put(self.get_new_order(2,4,constant.FName.aircraft_assembly)) # 6,10
               total_orders_ac += 1
             if num_orders_am < self.config.max_orders:
-              self.orders_am.put(self.get_new_order(8,12,constant.FName.automobile_assembly))
+              self.orders_am.put(self.get_new_order(2,5,constant.FName.automobile_assembly)) # 8,12
               total_orders_am += 1
 
           #print("[Step 3]: 能耗检查、预估；检查订单状态，安排、预测下周期生产/物流")
